@@ -1,0 +1,48 @@
+/* Stili stampa A4 */
+@page {
+  size: A4;
+  margin: 10mm;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    margin: 0;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .sheet {
+    width: 210mm;
+    min-height: 297mm;
+    padding: 14mm;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+/* In schermo, facciamo sembrare il foglio un A4 */
+.sheet {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 14mm;
+  margin: 12px auto;
+  background: white;
+  color: #213547; /* testo scuro per essere leggibile su sfondo bianco */
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  box-sizing: border-box;
+} 
+
+.muted {
+  color: #6b7280;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 10px 0;
+}
