@@ -1,73 +1,89 @@
-# React + TypeScript + Vite
+# Fiches Recettes
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+App per creare e stampare fiche tecniche con ingredienti, procedura e food cost.  
+Include una libreria fiches, gestione fornitori con listini prezzi e calcolo costi automatico.
 
-Currently, two official plugins are available:
+## Funzionalità
+- Editor fiche con anteprima A4 pronta per stampa
+- Import/export JSON e export PDF
+- Autosalvataggio locale
+- Libreria fiches su DB
+- Fornitori e listini prezzi
+- Collegamento ingrediente ↔ prodotto fornitore
+- Calcolo costo per ingrediente e food cost per porzione
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack
+- Frontend: React + Vite + TypeScript
+- Backend: Node + Express
+- DB: PostgreSQL (via Docker)
 
-## React Compiler
+## Avvio rapido
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1) Avvia PostgreSQL con Docker
+```bash
+docker run --name fiche-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=fiches -p 5432:5432 -d postgres:16
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 2) Installa dipendenze
+```bash
+npm install
 ```
+
+### 3) Avvia backend e frontend
+```bash
+npm run dev:server
+npm run dev
+```
+
+Oppure in un solo comando:
+```bash
+npm run dev:all
+```
+
+## Variabili DB (opzionale)
+Il backend legge queste variabili d’ambiente:
+```
+PGHOST=localhost
+PGPORT=5432
+PGUSER=postgres
+PGPASSWORD=postgres
+PGDATABASE=fiches
+```
+
+## Reset DB (per test)
+Endpoint backend:
+```
+POST /api/reset
+```
+
+PowerShell:
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/reset
+```
+
+## Flusso prezzi (fornitori ↔ fiche)
+- Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.
+- Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
+- Il prezzo viene sempre letto dal listino per il calcolo del costo.
+
+## Scripts utili
+```bash
+npm run dev         # frontend
+npm run dev:server  # backend
+npm run dev:all     # entrambi
+npm run build
+npm run preview
+```
+
+## Struttura progetto
+```
+server/            # backend Express + Postgres
+src/
+  components/      # UI
+  utils/           # db, suppliers, costing
+  types/           # tipi TS
+```
+
+## Note
+- L’app usa Postgres locale (Docker) per salvare fiches e listini.
+- Per funzionare correttamente, assicurati che il backend sia avviato su `localhost:3001`.
