@@ -300,14 +300,16 @@ export default function App() {
             } else {
               const count = supplierImportCount.get(key) ?? 0;
               useExisting = window.confirm(
-                `È stato rilevato un fornitore simile già esistente.\n` +
+                `[FORNITORI]\n` +
+                  `È stato rilevato un fornitore simile già esistente.\n` +
                   `Esistente: "${similar.name}"\nImport: "${name}"\n` +
                   `Righe importate per questo fornitore: ${count}\n\n` +
                   `OK = importa nel fornitore esistente\nAnnulla = crea un nuovo fornitore`
               );
               const applyAll = window.confirm(
-                `Vuoi applicare questa scelta a tutti i fornitori simili di questo import?\n` +
-                  `OK = sì, applica a tutti\nAnnulla = chiedi caso per caso`
+                `[FORNITORI]\n` +
+                  `Vuoi applicare questa scelta a tutti i fornitori simili di questo import?\n` +
+                  `OK = sì, applica a tutti i fornitori\nAnnulla = chiedi caso per caso`
               );
               if (applyAll) {
                 supplierApplyAll = useExisting;
@@ -371,14 +373,16 @@ export default function App() {
                 useExisting = productApplyAll;
               } else {
                 useExisting = window.confirm(
-                  `È stato rilevato un prodotto simile già esistente per "${supplier.name}".\n` +
+                  `[PRODOTTI]\n` +
+                    `È stato rilevato un prodotto simile già esistente per "${supplier.name}".\n` +
                     `Esistente: "${similarProduct.name}"\nImport: "${item.product}"\n` +
                     `Prezzo import: ${item.unitPrice ?? "-"} ${item.unit ?? ""}\n\n` +
                     `OK = aggiorna il prodotto esistente\nAnnulla = crea un nuovo prodotto`
                 );
                 const applyAll = window.confirm(
-                  `Vuoi applicare questa scelta a tutti i prodotti simili di questo import?\n` +
-                    `OK = sì, applica a tutti\nAnnulla = chiedi caso per caso`
+                  `[PRODOTTI]\n` +
+                    `Vuoi applicare questa scelta a tutti i prodotti simili di questo import?\n` +
+                    `OK = sì, applica a tutti i prodotti\nAnnulla = chiedi caso per caso`
                 );
                 if (applyAll) {
                   productApplyAll = useExisting;
@@ -845,10 +849,12 @@ export default function App() {
           </button>
         </div>
 
-        <div className="toolbar-hint">
+        {view === "editor" ? (
+  <div className="toolbar-hint">
           Suggerimento: per un PDF con testo selezionabile usa <strong>Stampa / Salva PDF</strong>.
           L&apos;export “1 click” è utile ma spesso rasterizza il contenuto.
         </div>
+) : null}
         {dbStatus ? <div className="toolbar-hint">{dbStatus}</div> : null}
       </header>
 

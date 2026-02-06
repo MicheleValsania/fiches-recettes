@@ -134,3 +134,10 @@ src/
 ## Note
 - L’app usa Postgres locale (Docker) per salvare fiches e listini.
 - Per funzionare correttamente, assicurati che il backend sia avviato su `localhost:3001`.
+
+## Changelog (2026-02-06)
+- Import listini CSV multipli con parsing intelligente (fornitore, prodotto, unità, prezzo).
+- Deduplica automatica case-insensitive + alert per nomi simili con scelta “applica a tutti”.
+- Rinomina fornitori e prodotti con propagazione alle fiche.
+- Eliminazione fornitori con pulizia riferimenti nelle fiche.
+- Script di avvio automatico e backup DB programmato.

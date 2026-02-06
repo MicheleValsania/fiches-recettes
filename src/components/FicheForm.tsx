@@ -72,6 +72,20 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
   const addStep = () => set({ steps: [...fiche.steps, ""] });
   const removeStep = (idx: number) => set({ steps: fiche.steps.filter((_, i) => i !== idx) });
 
+  const moveItem = <T,>(items: T[], from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return items;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  };
+
+  const insertItem = <T,>(items: T[], index: number, item: T) => {
+    const next = [...items];
+    next.splice(index, 0, item);
+    return next;
+  };
+
   const addEquipment = () => set({ equipment: [...fiche.equipment, ""] });
   const removeEquipment = (idx: number) => set({ equipment: fiche.equipment.filter((_, i) => i !== idx) });
 
@@ -275,6 +289,47 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
               </button>
             </div>
 
+            <div className="row-actions">
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => set({ ingredients: moveItem(fiche.ingredients, idx, idx - 1) })}
+                disabled={idx === 0}
+              >
+                Su
+              </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => set({ ingredients: moveItem(fiche.ingredients, idx, idx + 1) })}
+                disabled={idx === fiche.ingredients.length - 1}
+              >
+                Giu
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() =>
+                  set({
+                    ingredients: insertItem(fiche.ingredients, idx, { name: "", qty: "", note: "" }),
+                  })
+                }
+              >
+                + Sopra
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() =>
+                  set({
+                    ingredients: insertItem(fiche.ingredients, idx + 1, { name: "", qty: "", note: "" }),
+                  })
+                }
+              >
+                + Sotto
+              </button>
+            </div>
+
             <div className="grid-row grid-ingredients-extra">
               <input
                 className="input"
@@ -448,16 +503,50 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
 
       <div className="list">
         {fiche.steps.map((s, idx) => (
-          <div key={idx} className="grid-row grid-steps">
-            <textarea
-              className="input textarea"
-              value={s}
-              onChange={(e) => set({ steps: fiche.steps.map((x, i) => (i === idx ? e.target.value : x)) })}
-              placeholder={`Step ${idx + 1}`}
-            />
-            <button className="icon-button" type="button" onClick={() => removeStep(idx)} title="Rimuovi">
-              ×
-            </button>
+          <div key={idx} className="step-card">
+            <div className="grid-row grid-steps">
+              <textarea
+                className="input textarea"
+                value={s}
+                onChange={(e) => set({ steps: fiche.steps.map((x, i) => (i === idx ? e.target.value : x)) })}
+                placeholder={`Step ${idx + 1}`}
+              />
+              <button className="icon-button" type="button" onClick={() => removeStep(idx)} title="Rimuovi">
+                X
+              </button>
+            </div>
+            <div className="row-actions">
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => set({ steps: moveItem(fiche.steps, idx, idx - 1) })}
+                disabled={idx === 0}
+              >
+                Su
+              </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => set({ steps: moveItem(fiche.steps, idx, idx + 1) })}
+                disabled={idx === fiche.steps.length - 1}
+              >
+                Giu
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() => set({ steps: insertItem(fiche.steps, idx, "") })}
+              >
+                + Sopra
+              </button>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={() => set({ steps: insertItem(fiche.steps, idx + 1, "") })}
+              >
+                + Sotto
+              </button>
+            </div>
           </div>
         ))}
       </div>

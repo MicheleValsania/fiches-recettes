@@ -150,6 +150,17 @@
   cursor: default;
 }
 
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 6px;
+}
+
+.row-actions .btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
 .library-actions-inline {
   display: flex;
   gap: 8px;

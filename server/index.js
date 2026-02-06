@@ -235,7 +235,7 @@ app.delete("/api/suppliers/:id", async (req, res) => {
             ),
             '[]'::jsonb
           )
-          FROM jsonb_array_elements(data->'ingredients') ing
+          FROM jsonb_array_elements(COALESCE(data->'ingredients','[]'::jsonb)) ing
         )
       ),
       updated_at = now()
