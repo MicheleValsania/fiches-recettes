@@ -119,6 +119,75 @@ app.get("/api/suppliers", async (_req, res) => {
   res.json(rows);
 });
 
+app.put("/api/suppliers/:id", async (req, res) => {
+  const supplierId = req.params.id;
+  const name = String(req.body?.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Missing name" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: existing } = await client.query("SELECT name FROM suppliers WHERE id = $1", [supplierId]);
+    if (!existing[0]) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const oldName = existing[0].name;
+    const now = new Date().toISOString();
+    const { rows } = await client.query(
+      `
+      UPDATE suppliers
+      SET name = $1,
+          updated_at = $2
+      WHERE id = $3
+      RETURNING id, name, created_at AS "createdAt", updated_at AS "updatedAt";
+    `,
+      [name, now, supplierId]
+    );
+
+    await client.query(
+      `
+      UPDATE fiches
+      SET data = jsonb_set(
+        data,
+        '{ingredients}',
+        (
+          SELECT COALESCE(
+            jsonb_agg(
+            CASE
+              WHEN ing->>'supplierId' = $1 THEN
+                ing || jsonb_build_object('supplier', $2::text)
+              WHEN (ing->>'supplierId') IS NULL AND lower(coalesce(ing->>'supplier','')) = lower($3::text) THEN
+                ing || jsonb_build_object('supplier', $2::text, 'supplierId', $1)
+              ELSE ing
+            END
+            ),
+            '[]'::jsonb
+          )
+          FROM jsonb_array_elements(data->'ingredients') ing
+        )
+      ),
+      updated_at = now()
+      WHERE data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $3::text || '%';
+    `,
+      [supplierId, name, oldName]
+    );
+
+    await client.query("COMMIT");
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("rename supplier failed", err);
+    if (err?.code === "23505") {
+      return res.status(409).json({ error: "Duplicate name" });
+    }
+    res.status(500).json({ error: "update_failed" });
+  } finally {
+    client.release();
+  }
+});
+
 app.post("/api/suppliers", async (req, res) => {
   const name = String(req.body?.name || "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
@@ -136,6 +205,54 @@ app.post("/api/suppliers", async (req, res) => {
     [id, name, now]
   );
   res.json(rows[0]);
+});
+
+app.delete("/api/suppliers/:id", async (req, res) => {
+  const supplierId = req.params.id;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows } = await client.query("SELECT id, name FROM suppliers WHERE id = $1", [supplierId]);
+    if (!rows[0]) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    await client.query(
+      `
+      UPDATE fiches
+      SET data = jsonb_set(
+        data,
+        '{ingredients}',
+        (
+          SELECT COALESCE(
+            jsonb_agg(
+              CASE
+                WHEN ing->>'supplierId' = $1 THEN
+                  ing - 'supplierId' - 'supplierProductId'
+                ELSE ing
+              END
+            ),
+            '[]'::jsonb
+          )
+          FROM jsonb_array_elements(data->'ingredients') ing
+        )
+      ),
+      updated_at = now()
+      WHERE data::text LIKE '%' || $1 || '%';
+    `,
+      [supplierId]
+    );
+
+    await client.query("DELETE FROM suppliers WHERE id = $1", [supplierId]);
+    await client.query("COMMIT");
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).json({ error: "delete_failed" });
+  } finally {
+    client.release();
+  }
 });
 
 app.get("/api/suppliers/:id/products", async (req, res) => {
@@ -211,6 +328,84 @@ app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
   res.json(rows[0]);
+});
+
+app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
+  const supplierId = req.params.id;
+  const productId = req.params.productId;
+  const name = String(req.body?.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Missing name" });
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const { rows: existing } = await client.query(
+      "SELECT name FROM supplier_products WHERE id = $1 AND supplier_id = $2",
+      [productId, supplierId]
+    );
+    if (!existing[0]) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Not found" });
+    }
+
+    const oldName = existing[0].name;
+    const now = new Date().toISOString();
+    const { rows } = await client.query(
+      `
+      UPDATE supplier_products
+      SET name = $1,
+          updated_at = $2
+      WHERE id = $3 AND supplier_id = $4
+      RETURNING id,
+                supplier_id AS "supplierId",
+                name,
+                unit_price AS "unitPrice",
+                unit,
+                updated_at AS "updatedAt";
+    `,
+      [name, now, productId, supplierId]
+    );
+
+    await client.query(
+      `
+      UPDATE fiches
+      SET data = jsonb_set(
+        data,
+        '{ingredients}',
+        (
+          SELECT COALESCE(
+            jsonb_agg(
+            CASE
+              WHEN ing->>'supplierProductId' = $1 THEN
+                ing || jsonb_build_object('name', $2::text, 'supplierId', $3)
+              WHEN ing->>'supplierId' = $3 AND lower(coalesce(ing->>'name','')) = lower($4::text) THEN
+                ing || jsonb_build_object('name', $2::text)
+              ELSE ing
+            END
+            ),
+            '[]'::jsonb
+          )
+          FROM jsonb_array_elements(data->'ingredients') ing
+        )
+      ),
+      updated_at = now()
+      WHERE data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $4::text || '%';
+    `,
+      [productId, name, supplierId, oldName]
+    );
+
+    await client.query("COMMIT");
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("rename product failed", err);
+    if (err?.code === "23505") {
+      return res.status(409).json({ error: "Duplicate name" });
+    }
+    res.status(500).json({ error: "update_failed" });
+  } finally {
+    client.release();
+  }
 });
 
 app.delete("/api/suppliers/:id/products/:productId", async (req, res) => {

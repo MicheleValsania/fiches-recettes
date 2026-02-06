@@ -68,6 +68,39 @@ export async function updateSupplierProduct(
   return res.json();
 }
 
+export async function renameSupplier(supplierId: string, name: string): Promise<Supplier> {
+  const res = await fetch(`${API_BASE}/suppliers/${supplierId}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (res.status === 409) throw new Error("Nome fornitore già esistente");
+  if (!res.ok) throw new Error("Errore aggiornamento fornitore");
+  return res.json();
+}
+
+export async function renameSupplierProduct(
+  supplierId: string,
+  productId: string,
+  name: string
+): Promise<SupplierProduct> {
+  const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}/name`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name }),
+  });
+  if (res.status === 409) throw new Error("Nome prodotto già esistente");
+  if (!res.ok) throw new Error("Errore rinomina prodotto");
+  return res.json();
+}
+
+export async function deleteSupplier(supplierId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/suppliers/${supplierId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Errore eliminazione fornitore");
+}
+
 export async function deleteSupplierProduct(supplierId: string, productId: string): Promise<void> {
   const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}`, {
     method: "DELETE",

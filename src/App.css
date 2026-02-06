@@ -120,6 +120,10 @@
   grid-template-columns: 1fr auto;
 }
 
+.supplier-add > * {
+  min-width: 0;
+}
+
 .library-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -131,6 +135,19 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.library-card-content {
+  flex: 1;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+}
+
+.library-card-content:disabled {
+  cursor: default;
 }
 
 .library-actions-inline {
@@ -165,6 +182,20 @@
 
 .supplier-product-name {
   font-weight: 600;
+}
+
+.supplier-product-name-input {
+  width: 100%;
+}
+
+.supplier-title-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.supplier-title-row .input {
+  min-width: 220px;
 }
 
 .supplier-products-list {

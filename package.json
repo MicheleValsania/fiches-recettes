@@ -7,6 +7,8 @@
     "dev": "vite",
     "dev:server": "node server/index.js",
     "dev:all": "concurrently -k \"npm:dev\" \"npm:dev:server\"",
+    "dev:full": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
+    "backup:db": "powershell -ExecutionPolicy Bypass -File scripts/backup.ps1",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

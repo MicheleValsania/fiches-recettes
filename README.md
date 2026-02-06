@@ -40,6 +40,36 @@ Oppure in un solo comando:
 npm run dev:all
 ```
 
+### Avvio automatico (Docker + app)
+```bash
+npm run dev:full
+```
+Questo script:
+- Verifica che Docker Desktop sia avviato
+- Crea (se manca) e avvia il container Postgres
+- Avvia backend + frontend
+
+Dopo ogni riavvio del PC devi riaprire Docker Desktop, poi puoi usare `npm run dev:full`.
+
+## Backup automatico DB
+
+### Backup manuale
+```bash
+npm run backup:db
+```
+Salva i backup in `backups/` in formato `.dump` e mantiene gli ultimi 7 file.
+
+### Backup automatico ogni giorno alle 08:00 e 20:00 (Windows Task Scheduler)
+Esegui questi comandi una volta (adatta il percorso se il progetto è altrove):
+```powershell
+schtasks /Create /SC DAILY /ST 08:00 /TN "Fiches Backup 08" /TR "powershell -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
+schtasks /Create /SC DAILY /ST 20:00 /TN "Fiches Backup 20" /TR "powershell -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
+```
+
+Note:
+- Docker Desktop deve essere avviato per eseguire il backup.
+- Per cambiare retention/frequenza, modifica `scripts/backup.ps1`.
+
 ## Variabili DB (opzionale)
 Il backend legge queste variabili d’ambiente:
 ```
@@ -65,6 +95,23 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/reset
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.
 - Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
 - Il prezzo viene sempre letto dal listino per il calcolo del costo.
+
+## Import listini CSV (fornitori + prodotti)
+Nella sezione **Fornitori** usa il bottone **Importa CSV** per caricare uno o piÃ¹ file CSV.
+Colonne richieste: `FOURNISSEUR`, `DESIGNATION`, `UNITE`, `PRIX UNIT HT`.
+- I duplicati dello stesso fornitore vengono sovrascritti con l'ultimo caricato.
+- Prodotti uguali con fornitori diversi vengono mantenuti.
+- Case-insensitive automatico (es. `ATS` -> `ats`).
+- Per somiglianze (es. `tropézienne` vs `les halles tropezienne`) viene chiesta conferma e puoi applicare la scelta a tutto l'import.
+
+## Modifica fornitori/prodotti
+- Puoi rinominare il fornitore dal dettaglio listino.
+- Puoi rinominare i prodotti direttamente nella lista.
+- Le modifiche vengono propagate alle fiche.
+
+## Eliminazione fornitore
+- Nella lista fornitori puoi eliminare un fornitore e il suo listino.
+- Le fiche vengono aggiornate rimuovendo i riferimenti al fornitore eliminato.
 
 ## Scripts utili
 ```bash
