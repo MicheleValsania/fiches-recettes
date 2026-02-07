@@ -58,7 +58,7 @@
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+  grid-template-columns: minmax(420px, 1.2fr) minmax(280px, 0.8fr);
   gap: 18px;
   padding: 18px 22px 24px;
   flex: 1;
@@ -76,7 +76,7 @@
   background: radial-gradient(circle at top, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.9));
   border-radius: 20px;
   border: 1px solid rgba(15, 23, 42, 0.06);
-  padding: 18px;
+  padding: 14px;
   overflow: auto;
   min-height: 480px;
 }
@@ -333,7 +333,7 @@
 }
 
 .grid-ingredients-main {
-  grid-template-columns: 1fr 110px 1fr 34px;
+  grid-template-columns: 1fr 110px 1fr 34px 30px 30px 30px;
 }
 
 .grid-ingredients-extra {
@@ -341,7 +341,7 @@
 }
 
 .grid-steps {
-  grid-template-columns: 1fr 34px;
+  grid-template-columns: 1fr 30px 30px 30px 30px;
 }
 
 .grid-single {
@@ -359,6 +359,11 @@
   transition: transform 0.15s ease, border 0.2s ease;
 }
 
+.icon-button.icon-small {
+  height: 30px;
+  width: 30px;
+  font-size: 14px;
+}
 .input-price {
   text-align: right;
 }

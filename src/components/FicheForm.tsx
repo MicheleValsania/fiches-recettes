@@ -16,7 +16,7 @@ type Props = {
   getPriceForIngredient: (
     ing: FicheTechnique["ingredients"][number]
   ) => { unitPrice: number | null; unit: string | null } | null;
-  onPriceIndexRefresh: (ingredients?: FicheTechnique["ingredients"]) => Promise<void> | void;
+  onPriceIndexRefresh: (ingredientsv: FicheTechnique["ingredients"]) => Promise<void> | void;
 };
 
 function updateIngredient(
@@ -103,7 +103,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
   };
 
   const ensureSupplierId = async (ing: IngredientLine, idx: number) => {
-    const name = ing.supplier?.trim();
+    const name = ing.supplierv.trim();
     if (!name) return null;
     if (ing.supplierId) return ing.supplierId;
     const supplier = await ensureSupplier(name);
@@ -284,49 +284,38 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 onChange={(e) => set({ ingredients: updateIngredient(fiche.ingredients, idx, { note: e.target.value }) })}
                 placeholder="Note (opz.)"
               />
-              <button className="icon-button" type="button" onClick={() => removeIngredient(idx)} title="Rimuovi">
-                ×
+              <button className="icon-button icon-small" type="button" onClick={() => removeIngredient(idx)} title="Rimuovi">
+                x
               </button>
-            </div>
-
-            <div className="row-actions">
               <button
-                className="btn btn-ghost"
+                className="icon-button icon-small"
                 type="button"
                 onClick={() => set({ ingredients: moveItem(fiche.ingredients, idx, idx - 1) })}
                 disabled={idx === 0}
+                title="Sposta su"
               >
-                Su
+                ^
               </button>
               <button
-                className="btn btn-ghost"
+                className="icon-button icon-small"
                 type="button"
                 onClick={() => set({ ingredients: moveItem(fiche.ingredients, idx, idx + 1) })}
                 disabled={idx === fiche.ingredients.length - 1}
+                title="Sposta giu"
               >
-                Giu
+                v
               </button>
               <button
-                className="btn btn-outline"
-                type="button"
-                onClick={() =>
-                  set({
-                    ingredients: insertItem(fiche.ingredients, idx, { name: "", qty: "", note: "" }),
-                  })
-                }
-              >
-                + Sopra
-              </button>
-              <button
-                className="btn btn-outline"
+                className="icon-button icon-small"
                 type="button"
                 onClick={() =>
                   set({
                     ingredients: insertItem(fiche.ingredients, idx + 1, { name: "", qty: "", note: "" }),
                   })
                 }
+                title="Aggiungi sotto"
               >
-                + Sotto
+                +
               </button>
             </div>
 
@@ -419,13 +408,11 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                     setSupplierBusy(false);
                   }
                 }}
-                placeholder="Prezzo unità"
+                placeholder="Prezzo unita"
               />
               <select
                 className="input input-unit"
-                value={
-                  priceDrafts[String(idx)]?.unit ?? getPriceForIngredient(ing)?.unit ?? ""
-                }
+                value={priceDrafts[String(idx)]?.unit ?? getPriceForIngredient(ing)?.unit ?? ""}
                 onChange={(e) =>
                   setPriceDrafts((prev) => ({
                     ...prev,
@@ -463,13 +450,13 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   }
                 }}
               >
-                <option value="">Unità</option>
-                <option value="kg">€/kg</option>
-                <option value="g">€/g</option>
-                <option value="l">€/l</option>
-                <option value="ml">€/ml</option>
-                <option value="cl">€/cl</option>
-                <option value="pc">€/pz</option>
+                <option value="">Unita</option>
+                <option value="kg">EUR/kg</option>
+                <option value="g">EUR/g</option>
+                <option value="l">EUR/l</option>
+                <option value="ml">EUR/ml</option>
+                <option value="cl">EUR/cl</option>
+                <option value="pc">EUR/pz</option>
               </select>
               <div className="cost-chip">
                 {(() => {
@@ -484,7 +471,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                           unitPriceUnit: unit as IngredientLine["unitPriceUnit"],
                         })
                       : null;
-                  return cost != null ? formatCurrency(cost) : "—";
+                  return cost != null ? formatCurrency(cost) : "-";
                 })()}
               </div>
             </div>
@@ -511,67 +498,36 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 onChange={(e) => set({ steps: fiche.steps.map((x, i) => (i === idx ? e.target.value : x)) })}
                 placeholder={`Step ${idx + 1}`}
               />
-              <button className="icon-button" type="button" onClick={() => removeStep(idx)} title="Rimuovi">
-                X
+              <button className="icon-button icon-small" type="button" onClick={() => removeStep(idx)} title="Rimuovi">
+                x
               </button>
-            </div>
-            <div className="row-actions">
               <button
-                className="btn btn-ghost"
+                className="icon-button icon-small"
                 type="button"
                 onClick={() => set({ steps: moveItem(fiche.steps, idx, idx - 1) })}
                 disabled={idx === 0}
+                title="Sposta su"
               >
-                Su
+                ^
               </button>
               <button
-                className="btn btn-ghost"
+                className="icon-button icon-small"
                 type="button"
                 onClick={() => set({ steps: moveItem(fiche.steps, idx, idx + 1) })}
                 disabled={idx === fiche.steps.length - 1}
+                title="Sposta giu"
               >
-                Giu
+                v
               </button>
               <button
-                className="btn btn-outline"
-                type="button"
-                onClick={() => set({ steps: insertItem(fiche.steps, idx, "") })}
-              >
-                + Sopra
-              </button>
-              <button
-                className="btn btn-outline"
+                className="icon-button icon-small"
                 type="button"
                 onClick={() => set({ steps: insertItem(fiche.steps, idx + 1, "") })}
+                title="Aggiungi sotto"
               >
-                + Sotto
+                +
               </button>
             </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="divider" />
-
-      <div className="section-header">
-        <h3>Attrezzatura (opz.)</h3>
-        <button className="btn btn-ghost" type="button" onClick={addEquipment}>
-          + Aggiungi attrezzatura
-        </button>
-      </div>
-
-      <div className="list">
-        {fiche.equipment.map((eq, idx) => (
-          <div key={idx} className="grid-row grid-single">
-            <input
-              className="input"
-              value={eq}
-              onChange={(e) => set({ equipment: fiche.equipment.map((x, i) => (i === idx ? e.target.value : x)) })}
-              placeholder="Es: casseruola, frusta..."
-            />
-            <button className="icon-button" type="button" onClick={() => removeEquipment(idx)} title="Rimuovi">
-              ×
-            </button>
           </div>
         ))}
       </div>
@@ -595,7 +551,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
               placeholder="Es: glutine, latte..."
             />
             <button className="icon-button" type="button" onClick={() => removeAllergen(idx)} title="Rimuovi">
-              ×
+              x
             </button>
           </div>
         ))}
