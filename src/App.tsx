@@ -67,6 +67,10 @@ export default function App() {
 
   const previewRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const librarySearchRef = useRef<HTMLInputElement>(null);
+  const supplierSearchRef = useRef<HTMLInputElement>(null);
+  const productsSearchRef = useRef<HTMLInputElement>(null);
+  const supplierProductsSearchRef = useRef<HTMLInputElement>(null);
   const [dbStatus, setDbStatus] = useState<string>("");
   const [dbBusy, setDbBusy] = useState(false);
   const [importBusy, setImportBusy] = useState(false);
@@ -103,6 +107,33 @@ export default function App() {
     byProductId: Record<string, { unitPrice: number | null; unit: string | null }>;
     bySupplierKey: Record<string, { unitPrice: number | null; unit: string | null }>;
   }>({ byProductId: {}, bySupplierKey: {} });
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isEditable =
+        tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
+
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (!dbBusy) onSaveDb();
+        return;
+      }
+
+      if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (isEditable) return;
+        event.preventDefault();
+        if (view === "library") librarySearchRef.current?.focus();
+        else if (view === "suppliers") supplierSearchRef.current?.focus();
+        else if (view === "products") productsSearchRef.current?.focus();
+        else if (view === "supplierDetail") supplierProductsSearchRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [dbBusy, view]);
 
   const fileNameBase = useMemo(() => {
     const title = fiche.title?.trim() ? fiche.title.trim() : "fiche-technique";
@@ -897,6 +928,11 @@ export default function App() {
     );
   }, [allProducts, allProductsQuery]);
 
+  const formatUnitPrice = (value: number | null, unit: string | null) => {
+    if (value == null) return "-";
+    return unit ? `${value} ${unit}` : String(value);
+  };
+
   const ficheHasContent = (data: FicheTechnique) => {
     if (data.title.trim() || data.category.trim() || data.notes?.trim()) return true;
     if (data.ingredients.some((ing) => ing.name.trim() || ing.qty.trim() || ing.note?.trim())) return true;
@@ -934,7 +970,7 @@ export default function App() {
 
         <div className="toolbar">
           <button
-            className="btn btn-ghost"
+            className={`btn ${view === "editor" ? "btn-ghost" : "btn-primary"}`}
             onClick={() => {
               setFiche(newFiche());
               setView("editor");
@@ -942,35 +978,6 @@ export default function App() {
             }}
           >
             Nuova fiche
-          </button>
-
-          <button className="btn btn-outline" onClick={() => downloadJson(fiche, `${fileNameBase}.json`)}>
-            Esporta JSON
-          </button>
-
-          <label className="btn btn-outline file-button">
-            <input
-              type="file"
-              accept="application/json"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) onImportJson(f);
-                e.currentTarget.value = "";
-              }}
-            />
-            Importa JSON
-          </label>
-
-          <button className="btn btn-primary" onClick={() => window.print()}>
-            Stampa / Salva PDF
-          </button>
-
-          <button className="btn btn-outline" onClick={onExportPdfOneClick}>
-            Esporta PDF (1 click)
-          </button>
-
-          <button className="btn btn-outline" onClick={onSaveDb} disabled={dbBusy}>
-            Salva nel DB
           </button>
 
           <button className="btn btn-outline" onClick={onOpenLibrary} disabled={dbBusy}>
@@ -984,7 +991,56 @@ export default function App() {
           <button className="btn btn-outline" onClick={onOpenProducts} disabled={dbBusy}>
             Prodotti
           </button>
+
+          {view === "editor" ? (
+            <div className="fiche-actions">
+              <button className="btn btn-outline btn-fiche" onClick={() => downloadJson(fiche, `${fileNameBase}.json`)}>
+                Esporta JSON
+              </button>
+
+              <label className="btn btn-outline btn-fiche file-button">
+                <input
+                  type="file"
+                  accept="application/json"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) onImportJson(f);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                Importa JSON
+              </label>
+
+              <button className="btn btn-primary btn-fiche" onClick={() => window.print()}>
+                Stampa / Salva PDF
+              </button>
+
+              <button className="btn btn-outline btn-fiche" onClick={onExportPdfOneClick}>
+                Esporta PDF (1 click)
+              </button>
+
+              <button className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>
+                Salva nel DB
+              </button>
+            </div>
+
+          ) : null}
         </div>
+
+        {view !== "editor" ? (
+          <div className="toolbar-hint">
+            Modalita: {" "}
+            <span className="mode-pill">
+              {view === "library"
+                ? "Libreria fiches"
+                : view === "suppliers"
+                  ? "Fornitori"
+                  : view === "products"
+                    ? "Prodotti"
+                    : "Listino fornitore"}
+            </span>
+          </div>
+        ) : null}
 
         {view === "editor" ? (
   <div className="toolbar-hint">
@@ -1026,6 +1082,7 @@ export default function App() {
                   placeholder="Cerca per titolo..."
                   list="library-titles"
                   value={libraryQuery}
+                  ref={librarySearchRef}
                   onChange={(e) => setLibraryQuery(e.target.value)}
                 />
                 <datalist id="library-titles">
@@ -1096,6 +1153,7 @@ export default function App() {
                   placeholder="Cerca fornitore..."
                   list="supplier-names"
                   value={supplierQuery}
+                  ref={supplierSearchRef}
                   onChange={(e) => setSupplierQuery(e.target.value)}
                 />
                 <datalist id="supplier-names">
@@ -1180,6 +1238,7 @@ export default function App() {
                   className="input"
                   placeholder="Cerca prodotto o fornitore..."
                   value={allProductsQuery}
+                  ref={productsSearchRef}
                   onChange={(e) => setAllProductsQuery(e.target.value)}
                 />
                 <button className="btn btn-outline" onClick={() => setView("editor")}>
@@ -1188,20 +1247,27 @@ export default function App() {
               </div>
             </div>
 
-            <div className="library-list">
+            <div className="library-list library-list--index">
+              {filteredAllProducts.length > 0 ? (
+                <div className="product-index-row product-index-row--header">
+                  <div className="product-index-name">Prodotto</div>
+                  <div className="product-index-supplier">Fornitore</div>
+                  <div className="product-index-price">Prezzo</div>
+                  <div className="product-index-updated">Aggiornato</div>
+                </div>
+              ) : null}
               {filteredAllProducts.length === 0 ? (
                 <div className="library-empty">Nessun prodotto trovato.</div>
               ) : (
                 filteredAllProducts.map((product) => (
-                  <div key={product.id} className="library-card library-card--row">
-                    <div className="library-card-content">
-                      <div className="library-title">{product.name}</div>
-                      <div className="library-meta">
-                        Fornitore: {product.supplierName}
-                        {" • "}
-                        Prezzo: {product.unitPrice == null ? "—" : product.unitPrice}
-                        {product.unit ? ` ${product.unit}` : ""}
-                      </div>
+                  <div key={product.id} className="product-index-row">
+                    <div className="product-index-name">{product.name}</div>
+                    <div className="product-index-supplier">{product.supplierName}</div>
+                    <div className="product-index-price">
+                      {formatUnitPrice(product.unitPrice, product.unit)}
+                    </div>
+                    <div className="product-index-updated">
+                      {new Date(product.updatedAt).toLocaleDateString()}
                     </div>
                   </div>
                 ))
@@ -1236,6 +1302,7 @@ export default function App() {
                   className="input"
                   placeholder="Cerca prodotto..."
                   value={supplierProductQuery}
+                  ref={supplierProductsSearchRef}
                   onChange={(e) => setSupplierProductQuery(e.target.value)}
                 />
                 <button className="btn btn-outline" onClick={() => setView("suppliers")}>

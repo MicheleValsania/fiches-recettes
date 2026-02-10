@@ -50,6 +50,38 @@
   gap: 10px;
 }
 
+.fiche-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border-radius: 12px;
+  margin-left: auto;
+  background: rgba(30, 64, 175, 0.08);
+  border: 1px solid rgba(30, 64, 175, 0.2);
+}
+
+.btn-fiche {
+  border-color: rgba(30, 64, 175, 0.55);
+  color: #0f172a;
+}
+
+.btn-fiche.btn-primary {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.mode-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .toolbar-hint {
   margin-top: 10px;
   font-size: 12px;
@@ -165,6 +197,50 @@
 
 .library-index-title:disabled {
   cursor: default;
+}
+
+.product-index-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  transition: border 0.2s ease, transform 0.15s ease;
+}
+
+.product-index-row--header {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.12);
+  font-weight: 600;
+}
+
+.product-index-row--header:hover {
+  transform: none;
+  border-color: rgba(15, 23, 42, 0.12);
+}
+
+.product-index-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(249, 115, 22, 0.4);
+}
+
+.product-index-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.product-index-supplier,
+.product-index-price,
+.product-index-updated {
+  color: #475569;
+  font-size: 14px;
+}
+
+.product-index-updated {
+  text-align: right;
 }
 
 .library-card--row {
