@@ -7,9 +7,11 @@ Include una libreria fiches, gestione fornitori con listini prezzi e calcolo cos
 - Editor fiche con anteprima A4 pronta per stampa
 - Import/export JSON e export PDF
 - Autosalvataggio locale
-- Libreria fiches su DB
-- Fornitori e listini prezzi
-- Collegamento ingrediente ↔ prodotto fornitore
+- Libreria fiches su DB (con ricerca per titolo)
+- Fornitori e listini prezzi (con ricerca fornitori)
+- Scheda Prodotti con elenco completo (nome, fornitore, prezzo, unita) e ricerca
+- Ricerca prodotti nel listino del singolo fornitore
+- Collegamento ingrediente ??? prodotto fornitore
 - Calcolo costo per ingrediente e food cost per porzione
 
 ## Stack
