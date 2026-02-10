@@ -14,6 +14,11 @@ Include una libreria fiches, gestione fornitori con listini prezzi e calcolo cos
 - Collegamento ingrediente ??? prodotto fornitore
 - Calcolo costo per ingrediente e food cost per porzione
 
+## Ricerca
+- Libreria fiches: ricerca per titolo
+- Fornitori: ricerca per nome fornitore
+- Prodotti: ricerca per nome prodotto o fornitore
+
 ## Stack
 - Frontend: React + Vite + TypeScript
 - Backend: Node + Express
