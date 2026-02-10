@@ -1,13 +1,13 @@
-# Visione Prodotto & Diffusione (Italia + Francia)
+﻿# Visione Prodotto & Diffusione (Italia + Francia)
 
 ## Visione
 Prodotto semplice, pratico e accessibile per ristoratori, orientato al controllo del food cost e alla creazione di fiche tecniche.
-Obiettivo: massima diffusione con barriera d�ingresso minima.
+Obiettivo: massima diffusione con barriera d’ingresso minima.
 
 ## Principi chiave
 - **Semplicità** prima di tutto: pochi click, flussi chiari.
 - **Offline-first**: funziona senza internet.
-- **Prezzo basso / zero abbonamenti**: favorire l'adozione.
+- **Prezzo basso / zero abbonamenti**: favorire l’adozione.
 - **Open source**: trasparenza e fiducia.
 
 ## Modello di distribuzione
@@ -47,5 +47,16 @@ Obiettivo: massima diffusione con barriera d�ingresso minima.
 - Collaborazioni con scuole o associazioni.
 
 ## Messaggio chiave
-**Uno strumento semplice per il food cost e le fiche, pensato da chi lavora in cucina.**
+**“Uno strumento semplice per il food cost e le fiche, pensato da chi lavora in cucina.”**
+
+## Risorse
+- Piano di diffusione: `DIFFUSIONE_MINIMO_SFORZO.md`
+
+
+## Prezzo & condizioni
+- **Prezzo unico:** 20€ una tantum.
+- **Aggiornamenti inclusi.**
+- L’utente acquista l’app e la usa in autonomia seguendo i tutorial.
+- È possibile segnalare bug, ma **senza intervento tecnico dedicato**.
+- Il prezzo potrà essere rivisto in futuro senza contestazioni.
 
