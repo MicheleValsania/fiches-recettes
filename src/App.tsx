@@ -970,7 +970,7 @@ export default function App() {
 
         <div className="toolbar">
           <button
-            className={`btn ${view === "editor" ? "btn-ghost" : "btn-primary"}`}
+            className={`btn btn-outline nav-btn ${view === "editor" ? "nav-btn--active" : ""}`}
             onClick={() => {
               setFiche(newFiche());
               setView("editor");
@@ -980,15 +980,27 @@ export default function App() {
             Nuova fiche
           </button>
 
-          <button className="btn btn-outline" onClick={onOpenLibrary} disabled={dbBusy}>
+          <button
+            className={`btn btn-outline nav-btn ${view === "library" ? "nav-btn--active" : ""}`}
+            onClick={onOpenLibrary}
+            disabled={dbBusy}
+          >
             Libreria fiches
           </button>
 
-          <button className="btn btn-outline" onClick={onOpenSuppliers} disabled={dbBusy}>
+          <button
+            className={`btn btn-outline nav-btn ${view === "suppliers" || view === "supplierDetail" ? "nav-btn--active" : ""}`}
+            onClick={onOpenSuppliers}
+            disabled={dbBusy}
+          >
             Fornitori
           </button>
 
-          <button className="btn btn-outline" onClick={onOpenProducts} disabled={dbBusy}>
+          <button
+            className={`btn btn-outline nav-btn ${view === "products" ? "nav-btn--active" : ""}`}
+            onClick={onOpenProducts}
+            disabled={dbBusy}
+          >
             Prodotti
           </button>
 
@@ -1012,11 +1024,11 @@ export default function App() {
               </label>
 
               <button className="btn btn-primary btn-fiche" onClick={() => window.print()}>
-                Stampa / Salva PDF
+                Stampa
               </button>
 
               <button className="btn btn-outline btn-fiche" onClick={onExportPdfOneClick}>
-                Esporta PDF (1 click)
+                Esporta PDF
               </button>
 
               <button className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>

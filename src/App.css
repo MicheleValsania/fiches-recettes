@@ -50,6 +50,16 @@
   gap: 10px;
 }
 
+.nav-btn {
+  background: white;
+}
+
+.nav-btn--active {
+  background: #111827;
+  border-color: #111827;
+  color: white;
+}
+
 .fiche-actions {
   display: flex;
   gap: 8px;
