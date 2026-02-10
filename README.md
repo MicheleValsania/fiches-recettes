@@ -87,6 +87,25 @@ PGPASSWORD=postgres
 PGDATABASE=fiches
 ```
 
+## Setup multi-utente (Postgres + server)
+Questa modalita richiede un po' di competenza tecnica. In sintesi:
+
+1. Metti Postgres su un server o VM accessibile in rete (non su localhost).
+2. Avvia il backend su una macchina raggiungibile dai client.
+3. Configura le variabili d'ambiente del backend:
+```
+PGHOST=ip_o_host_del_server
+PGPORT=5432
+PGUSER=postgres
+PGPASSWORD=postgres
+PGDATABASE=fiches
+PORT=3001
+```
+4. Consenti l'accesso di rete al backend (firewall) e aggiungi autenticazione se serve.
+5. Dal client, imposta l'API base (se necessario) verso l'indirizzo del backend.
+
+Nota: con l'assetto attuale l'app e il DB sono locali su `localhost`, quindi single-user.
+
 ## Reset DB (per test)
 Endpoint backend:
 ```
@@ -143,6 +162,9 @@ src/
 - Per funzionare correttamente, assicurati che il backend sia avviato su `localhost:3001`.
 
 ## Changelog (2026-02-06)
+- Nuova scheda Prodotti con elenco completo e ricerca.
+- Ricerca in libreria fiches, fornitori e prodotti.
+- Migliorie toolbar: comandi fiche solo in editor e menu principale sempre visibile.
 - Import listini CSV multipli con parsing intelligente (fornitore, prodotto, unità, prezzo).
 - Deduplica automatica case-insensitive + alert per nomi simili con scelta “applica a tutti”.
 - Rinomina fornitori e prodotti con propagazione alle fiche.
