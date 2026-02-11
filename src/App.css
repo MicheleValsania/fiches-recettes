@@ -106,6 +106,10 @@
   flex: 1;
 }
 
+.layout > * {
+  min-width: 0;
+}
+
 .editor {
   background: var(--panel);
   border-radius: 20px;

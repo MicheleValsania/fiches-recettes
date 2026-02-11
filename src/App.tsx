@@ -232,6 +232,48 @@ export default function App() {
     }
   }
 
+  async function onExportAllFiches() {
+    try {
+      setDbBusy(true);
+      const items = library.length > 0 ? library : await listFichesFromDb();
+      if (items.length === 0) {
+        setDbStatus("Nessuna fiche da esportare.");
+        return;
+      }
+
+      const loaded = await Promise.all(
+        items.map(async (item) => {
+          try {
+            return await loadFicheFromDb(item.id);
+          } catch {
+            return null;
+          }
+        })
+      );
+      const fiches = loaded.filter((item): item is FicheTechnique => item !== null);
+
+      if (fiches.length === 0) {
+        setDbStatus("Errore esportazione: nessuna fiche caricabile.");
+        return;
+      }
+
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      downloadJson(
+        {
+          exportedAt: new Date().toISOString(),
+          count: fiches.length,
+          fiches,
+        },
+        `fiches-techniques-${stamp}.json`
+      );
+      setDbStatus(`Esportate ${fiches.length} fiches in un unico file JSON.`);
+    } catch {
+      setDbStatus("Errore durante l'export di tutte le fiches.");
+    } finally {
+      setDbBusy(false);
+    }
+  }
+
   const normalize = (value: string) =>
     value
       .trim()
@@ -1102,6 +1144,9 @@ export default function App() {
                     <option key={title} value={title} />
                   ))}
                 </datalist>
+                <button className="btn btn-outline" onClick={onExportAllFiches} disabled={dbBusy}>
+                  Esporta tutte (JSON)
+                </button>
                 <button
                   className="btn btn-outline"
                   onClick={async () => {

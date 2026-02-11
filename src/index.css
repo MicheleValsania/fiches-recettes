@@ -26,6 +26,7 @@ body {
   min-height: 100vh;
   color: var(--text);
   background: radial-gradient(circle at top left, #fff1e6, #f8fafc 40%, #fef3c7 100%);
+  overflow-x: hidden;
 }
 
 a {
