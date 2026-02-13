@@ -1,11 +1,7 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-export async function exportElementToA4Pdf(
-  element: HTMLElement,
-  filename = "fiche-technique.pdf"
-) {
-  // “Fotografa” il contenuto con buona qualità
+export async function renderElementToA4PdfBlob(element: HTMLElement): Promise<Blob> {
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
@@ -13,17 +9,14 @@ export async function exportElementToA4Pdf(
   });
 
   const imgData = canvas.toDataURL("image/png");
-
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = 210;
   const pageHeight = 297;
 
-  // dimensioni immagine su pagina mantenendo proporzioni
   const imgProps = pdf.getImageProperties(imgData);
   const imgWidth = pageWidth;
   const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-  // Se sfora, gestiamo più pagine “tagliando” verticalmente
   let position = 0;
   let heightLeft = imgHeight;
 
@@ -32,10 +25,23 @@ export async function exportElementToA4Pdf(
 
   while (heightLeft > 0) {
     pdf.addPage();
-    position = heightLeft - imgHeight; // negativo, sposta su l’immagine
+    position = heightLeft - imgHeight;
     pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
     heightLeft -= pageHeight;
   }
 
-  pdf.save(filename);
+  return pdf.output("blob") as Blob;
+}
+
+export async function exportElementToA4Pdf(
+  element: HTMLElement,
+  filename = "fiche-technique.pdf"
+) {
+  const blob = await renderElementToA4PdfBlob(element);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

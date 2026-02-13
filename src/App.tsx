@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
 import "./App.css";
 import "./print.css";
 
 import type { FicheTechnique } from "./types/fiche";
 import FicheForm from "./components/FicheForm";
 import FichePreview from "./components/FichePreview";
-import { downloadJson, readJsonFile, safeFilename } from "./utils/exporters";
-import { exportElementToA4Pdf } from "./utils/pdf";
+import { downloadBlob, downloadJson, readJsonFile, safeFilename } from "./utils/exporters";
+import { exportElementToA4Pdf, renderElementToA4PdfBlob } from "./utils/pdf";
+import { createZipBlob } from "./utils/zip";
 import {
   deleteFicheFromDb,
   listFichesFromDb,
@@ -30,6 +32,11 @@ import {
 } from "./utils/suppliers";
 
 const STORAGE_KEY = "fiche-technique:v1";
+type PriceMatch = { unitPrice: number | null; unit: string | null };
+type PriceIndex = {
+  byProductId: Record<string, PriceMatch>;
+  bySupplierKey: Record<string, PriceMatch>;
+};
 
 function newFiche(): FicheTechnique {
   const now = new Date().toISOString();
@@ -103,10 +110,7 @@ export default function App() {
     }>
   >([]);
   const [allProductsQuery, setAllProductsQuery] = useState("");
-  const [priceIndex, setPriceIndex] = useState<{
-    byProductId: Record<string, { unitPrice: number | null; unit: string | null }>;
-    bySupplierKey: Record<string, { unitPrice: number | null; unit: string | null }>;
-  }>({ byProductId: {}, bySupplierKey: {} });
+  const [priceIndex, setPriceIndex] = useState<PriceIndex>({ byProductId: {}, bySupplierKey: {} });
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -269,6 +273,100 @@ export default function App() {
       setDbStatus(`Esportate ${fiches.length} fiches in un unico file JSON.`);
     } catch {
       setDbStatus("Errore durante l'export di tutte le fiches.");
+    } finally {
+      setDbBusy(false);
+    }
+  }
+
+  async function onExportAllFichesPdfZip() {
+    try {
+      setDbBusy(true);
+      const items = library.length > 0 ? library : await listFichesFromDb();
+      if (items.length === 0) {
+        setDbStatus("Nessuna fiche da esportare.");
+        return;
+      }
+
+      const loaded = await Promise.all(
+        items.map(async (item) => {
+          try {
+            return await loadFicheFromDb(item.id);
+          } catch {
+            return null;
+          }
+        })
+      );
+      const fiches = loaded.filter((item): item is FicheTechnique => item !== null);
+      if (fiches.length === 0) {
+        setDbStatus("Errore esportazione: nessuna fiche caricabile.");
+        return;
+      }
+
+      const files: Array<{ name: string; data: Blob }> = [];
+      const usedNames = new Set<string>();
+
+      for (let i = 0; i < fiches.length; i += 1) {
+        const current = fiches[i];
+        setDbStatus(`Generazione PDF ${i + 1}/${fiches.length}...`);
+
+        const wrapper = document.createElement("div");
+        wrapper.style.position = "fixed";
+        wrapper.style.left = "-99999px";
+        wrapper.style.top = "0";
+        wrapper.style.width = "210mm";
+        wrapper.style.backgroundColor = "#ffffff";
+        document.body.appendChild(wrapper);
+        const root = createRoot(wrapper);
+
+        try {
+          const localPriceIndex = await buildPriceIndexForIngredients(current.ingredients);
+          const getLocalPrice = (ing: FicheTechnique["ingredients"][number]) =>
+            getPriceForIngredientFromIndex(localPriceIndex, ing);
+
+          root.render(
+            <div className="preview-inner">
+              <FichePreview fiche={current} getPriceForIngredient={getLocalPrice} />
+            </div>
+          );
+
+          await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+          });
+
+          const renderTarget = wrapper.querySelector(".preview-inner");
+          if (!renderTarget || !(renderTarget instanceof HTMLElement)) continue;
+
+          const pdfBlob = await renderElementToA4PdfBlob(renderTarget);
+          const baseRaw = current.title?.trim() ? current.title : `fiche-${i + 1}`;
+          const baseSafe = safeFilename(baseRaw) || `fiche-${i + 1}`;
+          let fileName = `${baseSafe}.pdf`;
+          if (usedNames.has(fileName)) {
+            let suffix = 2;
+            while (usedNames.has(`${baseSafe}-${suffix}.pdf`)) suffix += 1;
+            fileName = `${baseSafe}-${suffix}.pdf`;
+          }
+          usedNames.add(fileName);
+          files.push({ name: fileName, data: pdfBlob });
+        } catch {
+          // Continua l'export sulle altre fiches.
+        } finally {
+          root.unmount();
+          wrapper.remove();
+        }
+      }
+
+      if (files.length === 0) {
+        setDbStatus("Errore esportazione PDF: nessun file generato.");
+        return;
+      }
+
+      setDbStatus("Creazione archivio ZIP...");
+      const zipBlob = await createZipBlob(files);
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+      downloadBlob(zipBlob, `fiches-techniques-pdf-${stamp}.zip`);
+      setDbStatus(`Esportati ${files.length} PDF in un unico ZIP.`);
+    } catch {
+      setDbStatus("Errore durante l'export PDF ZIP.");
     } finally {
       setDbBusy(false);
     }
@@ -534,22 +632,30 @@ export default function App() {
     }
   }
 
-  const getPriceForIngredient = (ing: FicheTechnique["ingredients"][number]) => {
-    if (ing.supplierProductId && priceIndex.byProductId[ing.supplierProductId]) {
-      return priceIndex.byProductId[ing.supplierProductId];
+  const getPriceForIngredientFromIndex = (
+    index: PriceIndex,
+    ing: FicheTechnique["ingredients"][number]
+  ): PriceMatch | null => {
+    if (ing.supplierProductId && index.byProductId[ing.supplierProductId]) {
+      return index.byProductId[ing.supplierProductId];
     }
     if (ing.supplierId) {
       const key = `${ing.supplierId}::${normalize(ing.name)}`;
-      return priceIndex.bySupplierKey[key] || null;
+      return index.bySupplierKey[key] || null;
     }
     if (ing.supplier) {
       const key = `${normalize(ing.supplier)}::${normalize(ing.name)}`;
-      return priceIndex.bySupplierKey[key] || null;
+      return index.bySupplierKey[key] || null;
     }
     return null;
   };
 
-  const rebuildPriceIndex = async (ingredients: FicheTechnique["ingredients"]) => {
+  const getPriceForIngredient = (ing: FicheTechnique["ingredients"][number]) =>
+    getPriceForIngredientFromIndex(priceIndex, ing);
+
+  const buildPriceIndexForIngredients = async (
+    ingredients: FicheTechnique["ingredients"]
+  ): Promise<PriceIndex> => {
     const supplierIds = new Set<string>();
     const supplierNames = new Set<string>();
     for (const ing of ingredients) {
@@ -558,8 +664,7 @@ export default function App() {
     }
 
     if (supplierIds.size === 0 && supplierNames.size === 0) {
-      setPriceIndex({ byProductId: {}, bySupplierKey: {} });
-      return;
+      return { byProductId: {}, bySupplierKey: {} };
     }
 
     const suppliersList = await listSuppliers();
@@ -569,8 +674,8 @@ export default function App() {
       if (match) supplierIds.add(match.id);
     }
 
-    const byProductId: Record<string, { unitPrice: number | null; unit: string | null }> = {};
-    const bySupplierKey: Record<string, { unitPrice: number | null; unit: string | null }> = {};
+    const byProductId: Record<string, PriceMatch> = {};
+    const bySupplierKey: Record<string, PriceMatch> = {};
 
     for (const id of supplierIds) {
       const supplier = suppliersList.find((s) => s.id === id);
@@ -585,7 +690,12 @@ export default function App() {
       }
     }
 
-    setPriceIndex({ byProductId, bySupplierKey });
+    return { byProductId, bySupplierKey };
+  };
+
+  const rebuildPriceIndex = async (ingredients: FicheTechnique["ingredients"]) => {
+    const next = await buildPriceIndexForIngredients(ingredients);
+    setPriceIndex(next);
   };
 
   useEffect(() => {
@@ -1146,6 +1256,9 @@ export default function App() {
                 </datalist>
                 <button className="btn btn-outline" onClick={onExportAllFiches} disabled={dbBusy}>
                   Esporta tutte (JSON)
+                </button>
+                <button className="btn btn-outline" onClick={onExportAllFichesPdfZip} disabled={dbBusy}>
+                  Esporta tutte (PDF ZIP)
                 </button>
                 <button
                   className="btn btn-outline"
