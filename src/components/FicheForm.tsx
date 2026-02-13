@@ -102,7 +102,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
   };
 
   const ensureSupplierId = async (ing: IngredientLine, idx: number) => {
-    const name = ing.supplierv.trim();
+    const name = (ing.supplier ?? "").trim();
     if (!name) return null;
     if (ing.supplierId) return ing.supplierId;
     const supplier = await ensureSupplier(name);
