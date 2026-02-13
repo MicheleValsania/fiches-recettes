@@ -6,6 +6,7 @@ import "./print.css";
 import type { FicheTechnique } from "./types/fiche";
 import FicheForm from "./components/FicheForm";
 import FichePreview from "./components/FichePreview";
+import { getInitialLang, LANG_STORAGE_KEY, localeByLang, t, type Lang } from "./i18n";
 import { downloadBlob, downloadJson, readJsonFile, safeFilename } from "./utils/exporters";
 import { exportElementToA4Pdf, renderElementToA4PdfBlob } from "./utils/pdf";
 import { createZipBlob } from "./utils/zip";
@@ -56,6 +57,7 @@ function newFiche(): FicheTechnique {
 }
 
 export default function App() {
+  const [lang, setLang] = useState<Lang>(() => getInitialLang());
   const [fiche, setFiche] = useState<FicheTechnique>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -71,6 +73,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(fiche));
   }, [fiche]);
+
+  useEffect(() => {
+    localStorage.setItem(LANG_STORAGE_KEY, lang);
+  }, [lang]);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -154,7 +160,7 @@ export default function App() {
       };
       setFiche(merged);
     } catch {
-      alert("File JSON non valido.");
+      alert(t(lang, "app.invalidJson"));
     }
   }
 
@@ -168,9 +174,9 @@ export default function App() {
       setDbBusy(true);
       await saveFicheToDb(fiche);
       lastDbSnapshotRef.current = JSON.stringify(fiche);
-      setDbStatus("Salvata nel DB.");
+      setDbStatus(t(lang, "status.savedDb"));
     } catch {
-      setDbStatus("Errore: server DB non raggiungibile.");
+      setDbStatus(t(lang, "status.dbServerError"));
     } finally {
       setDbBusy(false);
     }
@@ -186,7 +192,7 @@ export default function App() {
       setView("library");
       setDbStatus("");
     } catch {
-      setDbStatus("Errore nel caricamento elenco.");
+      setDbStatus(t(lang, "status.libraryLoadError"));
     } finally {
       setDbBusy(false);
     }
@@ -200,22 +206,22 @@ export default function App() {
       setFiche(merged);
       lastDbSnapshotRef.current = JSON.stringify(merged);
       setView("editor");
-      setDbStatus("Fiche caricata dal DB.");
+      setDbStatus(t(lang, "status.ficheLoaded"));
     } catch {
-      setDbStatus("Impossibile caricare la fiche selezionata.");
+      setDbStatus(t(lang, "status.ficheLoadError"));
     } finally {
       setDbBusy(false);
     }
   }
 
   async function onDeleteFromLibrary(item: FicheListItem) {
-    if (!confirm(`Eliminare la fiche "${item.title || "Senza titolo"}"?`)) return;
+    if (!confirm(t(lang, "confirm.deleteFiche", { title: item.title || t(lang, "app.untitled") }))) return;
     try {
       setDbBusy(true);
       await deleteFicheFromDb(item.id);
       setLibrary((prev) => prev.filter((f) => f.id !== item.id));
     } catch {
-      setDbStatus("Errore eliminazione fiche.");
+      setDbStatus(t(lang, "status.deleteFicheError"));
     } finally {
       setDbBusy(false);
     }
@@ -226,7 +232,7 @@ export default function App() {
       setDbBusy(true);
       const items = library.length > 0 ? library : await listFichesFromDb();
       if (items.length === 0) {
-        setDbStatus("Nessuna fiche da esportare.");
+        setDbStatus(t(lang, "status.noFicheToExport"));
         return;
       }
 
@@ -242,7 +248,7 @@ export default function App() {
       const fiches = loaded.filter((item): item is FicheTechnique => item !== null);
 
       if (fiches.length === 0) {
-        setDbStatus("Errore esportazione: nessuna fiche caricabile.");
+        setDbStatus(t(lang, "status.noFicheLoadable"));
         return;
       }
 
@@ -255,9 +261,9 @@ export default function App() {
         },
         `fiches-techniques-${stamp}.json`
       );
-      setDbStatus(`Esportate ${fiches.length} fiches in un unico file JSON.`);
+      setDbStatus(t(lang, "status.exportedAllJson", { count: fiches.length }));
     } catch {
-      setDbStatus("Errore durante l'export di tutte le fiches.");
+      setDbStatus(t(lang, "status.exportAllError"));
     } finally {
       setDbBusy(false);
     }
@@ -268,7 +274,7 @@ export default function App() {
       setDbBusy(true);
       const items = library.length > 0 ? library : await listFichesFromDb();
       if (items.length === 0) {
-        setDbStatus("Nessuna fiche da esportare.");
+        setDbStatus(t(lang, "status.noFicheToExport"));
         return;
       }
 
@@ -283,7 +289,7 @@ export default function App() {
       );
       const fiches = loaded.filter((item): item is FicheTechnique => item !== null);
       if (fiches.length === 0) {
-        setDbStatus("Errore esportazione: nessuna fiche caricabile.");
+        setDbStatus(t(lang, "status.noFicheLoadable"));
         return;
       }
 
@@ -292,7 +298,7 @@ export default function App() {
 
       for (let i = 0; i < fiches.length; i += 1) {
         const current = fiches[i];
-        setDbStatus(`Generazione PDF ${i + 1}/${fiches.length}...`);
+        setDbStatus(t(lang, "status.exportPdfProgress", { current: i + 1, total: fiches.length }));
 
         const wrapper = document.createElement("div");
         wrapper.style.position = "fixed";
@@ -310,7 +316,7 @@ export default function App() {
 
           root.render(
             <div className="preview-inner">
-              <FichePreview fiche={current} getPriceForIngredient={getLocalPrice} />
+              <FichePreview fiche={current} lang={lang} getPriceForIngredient={getLocalPrice} />
             </div>
           );
 
@@ -341,17 +347,17 @@ export default function App() {
       }
 
       if (files.length === 0) {
-        setDbStatus("Errore esportazione PDF: nessun file generato.");
+        setDbStatus(t(lang, "status.exportPdfNone"));
         return;
       }
 
-      setDbStatus("Creazione archivio ZIP...");
+      setDbStatus(t(lang, "status.zipCreating"));
       const zipBlob = await createZipBlob(files);
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
       downloadBlob(zipBlob, `fiches-techniques-pdf-${stamp}.zip`);
-      setDbStatus(`Esportati ${files.length} PDF in un unico ZIP.`);
+      setDbStatus(t(lang, "status.exportedPdfZip", { count: files.length }));
     } catch {
-      setDbStatus("Errore durante l'export PDF ZIP.");
+      setDbStatus(t(lang, "status.exportPdfZipError"));
     } finally {
       setDbBusy(false);
     }
@@ -411,7 +417,7 @@ export default function App() {
 
     try {
       setImportBusy(true);
-      setImportStatus("Import in corso...");
+      setImportStatus(t(lang, "status.importRunning"));
       setDbStatus("");
 
       const existingSuppliers = await listSuppliers();
@@ -427,7 +433,7 @@ export default function App() {
       }
 
       if (allItems.length === 0) {
-        setImportStatus("Nessuna riga valida trovata nei CSV.");
+        setImportStatus(t(lang, "status.importNoValidRows"));
         return;
       }
 
@@ -477,22 +483,20 @@ export default function App() {
             } else {
               const count = supplierImportCount.get(key) ?? 0;
               useExisting = window.confirm(
-                `[FORNITORI]\n` +
-                  `È stato rilevato un fornitore simile già esistente.\n` +
-                  `Esistente: "${similar.name}"\nImport: "${name}"\n` +
-                  `Righe importate per questo fornitore: ${count}\n\n` +
-                  `OK = importa nel fornitore esistente\nAnnulla = crea un nuovo fornitore`
+                t(lang, "confirm.importSupplierSimilar", {
+                  existing: similar.name,
+                  incoming: name,
+                  count,
+                })
               );
               const applyAll = window.confirm(
-                `[FORNITORI]\n` +
-                  `Vuoi applicare questa scelta a tutti i fornitori simili di questo import?\n` +
-                  `OK = sì, applica a tutti i fornitori\nAnnulla = chiedi caso per caso`
+                t(lang, "confirm.importSupplierApplyAll")
               );
               if (applyAll) {
                 supplierApplyAll = useExisting;
                 supplierApplyAllLabel = useExisting
-                  ? "Fornitori simili: usa esistenti per tutto l'import."
-                  : "Fornitori simili: crea nuovi per tutto l'import.";
+                  ? t(lang, "status.importSupplierUseExistingAll")
+                  : t(lang, "status.importSupplierCreateAll");
               }
             }
             supplierChoice.set(key, useExisting ? similar : null);
@@ -550,22 +554,22 @@ export default function App() {
                 useExisting = productApplyAll;
               } else {
                 useExisting = window.confirm(
-                  `[PRODOTTI]\n` +
-                    `È stato rilevato un prodotto simile già esistente per "${supplier.name}".\n` +
-                    `Esistente: "${similarProduct.name}"\nImport: "${item.product}"\n` +
-                    `Prezzo import: ${item.unitPrice ?? "-"} ${item.unit ?? ""}\n\n` +
-                    `OK = aggiorna il prodotto esistente\nAnnulla = crea un nuovo prodotto`
+                  t(lang, "confirm.importProductSimilar", {
+                    supplier: supplier.name,
+                    existing: similarProduct.name,
+                    incoming: item.product,
+                    price: item.unitPrice ?? "-",
+                    unit: item.unit ?? "",
+                  })
                 );
                 const applyAll = window.confirm(
-                  `[PRODOTTI]\n` +
-                    `Vuoi applicare questa scelta a tutti i prodotti simili di questo import?\n` +
-                    `OK = sì, applica a tutti i prodotti\nAnnulla = chiedi caso per caso`
+                  t(lang, "confirm.importProductApplyAll")
                 );
                 if (applyAll) {
                   productApplyAll = useExisting;
                   productApplyAllLabel = useExisting
-                    ? "Prodotti simili: aggiorna esistenti per tutto l'import."
-                    : "Prodotti simili: crea nuovi per tutto l'import.";
+                    ? t(lang, "status.importProductUpdateAll")
+                    : t(lang, "status.importProductCreateAll");
                 }
               }
               productChoice.set(choiceKey, {
@@ -608,9 +612,15 @@ export default function App() {
 
       const extraNotes = [supplierApplyAllLabel, productApplyAllLabel].filter(Boolean).join(" ");
       const suffix = extraNotes ? ` ${extraNotes}` : "";
-      setImportStatus(`Import completato: ${imported} prodotti (${uniqueSuppliers.length} fornitori).${suffix}`);
+      setImportStatus(
+        t(lang, "status.importDone", {
+          imported,
+          suppliers: uniqueSuppliers.length,
+          suffix,
+        })
+      );
     } catch {
-      setImportStatus("Errore durante l'import CSV.");
+      setImportStatus(t(lang, "status.importError"));
     } finally {
       setImportBusy(false);
       if (importInputRef.current) importInputRef.current.value = "";
@@ -741,9 +751,9 @@ export default function App() {
         ingredients: updatedIngredients,
         updatedAt: new Date().toISOString(),
       }));
-      setDbStatus("Prezzi sincronizzati dal listino.");
+      setDbStatus(t(lang, "status.syncPricesDone"));
     } catch {
-      setDbStatus("Errore durante la sincronizzazione prezzi.");
+      setDbStatus(t(lang, "status.syncPricesError"));
     } finally {
       setDbBusy(false);
     }
@@ -760,7 +770,7 @@ export default function App() {
       setView("suppliers");
       setDbStatus("");
     } catch {
-      setDbStatus("Errore nel caricamento fornitori.");
+      setDbStatus(t(lang, "status.suppliersLoadError"));
     } finally {
       setDbBusy(false);
     }
@@ -794,7 +804,7 @@ export default function App() {
       setView("products");
       setDbStatus("");
     } catch {
-      setDbStatus("Errore nel caricamento prodotti.");
+      setDbStatus(t(lang, "status.productsLoadError"));
     } finally {
       setDbBusy(false);
     }
@@ -825,7 +835,7 @@ export default function App() {
         setSupplierProductQuery("");
         setView("supplierDetail");
       } catch {
-        setDbStatus("Errore nel caricamento listino.");
+        setDbStatus(t(lang, "status.supplierListLoadError"));
       } finally {
         setDbBusy(false);
     }
@@ -840,14 +850,14 @@ export default function App() {
       setSuppliers((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       setNewSupplierName("");
     } catch {
-      setDbStatus("Errore nel salvataggio fornitore.");
+      setDbStatus(t(lang, "status.supplierSaveError"));
     } finally {
       setDbBusy(false);
     }
   }
 
   async function onDeleteSupplier(supplier: Supplier) {
-    if (!confirm(`Eliminare il fornitore "${supplier.name}" e tutto il suo listino?`)) return;
+    if (!confirm(t(lang, "confirm.deleteSupplier", { name: supplier.name }))) return;
     try {
       setDbBusy(true);
       await deleteSupplier(supplier.id);
@@ -857,9 +867,9 @@ export default function App() {
         setSupplierProducts([]);
         setView("suppliers");
       }
-      setDbStatus("Fornitore eliminato.");
+      setDbStatus(t(lang, "status.supplierDeleted"));
     } catch {
-      setDbStatus("Errore eliminazione fornitore.");
+      setDbStatus(t(lang, "status.supplierDeleteError"));
     } finally {
       setDbBusy(false);
     }
@@ -887,7 +897,7 @@ export default function App() {
       setNewProductPrice("");
       setNewProductUnit("");
     } catch {
-      setDbStatus("Errore nel salvataggio prodotto.");
+      setDbStatus(t(lang, "status.productSaveError"));
     } finally {
       setDbBusy(false);
     }
@@ -912,9 +922,9 @@ export default function App() {
         },
       }));
       await rebuildPriceIndex(fiche.ingredients);
-      setDbStatus("Prezzo aggiornato nel listino.");
+      setDbStatus(t(lang, "status.productPriceUpdated"));
     } catch {
-      setDbStatus("Errore aggiornamento prodotto.");
+      setDbStatus(t(lang, "status.productUpdateError"));
     } finally {
       setDbBusy(false);
     }
@@ -941,7 +951,7 @@ export default function App() {
 
   async function onDeleteSupplierProduct(productId: string) {
     if (!selectedSupplier) return;
-    if (!confirm("Eliminare questo prodotto dal listino?")) return;
+    if (!confirm(t(lang, "confirm.deleteProduct"))) return;
     try {
       setDbBusy(true);
       await deleteSupplierProduct(selectedSupplier.id, productId);
@@ -952,7 +962,7 @@ export default function App() {
         return next;
       });
     } catch {
-      setDbStatus("Errore eliminazione prodotto.");
+      setDbStatus(t(lang, "status.productDeleteError"));
     } finally {
       setDbBusy(false);
     }
@@ -971,10 +981,10 @@ export default function App() {
           .map((s) => (s.id === updated.id ? updated : s))
           .sort((a, b) => a.name.localeCompare(b.name))
       );
-      setDbStatus("Fornitore rinominato.");
+      setDbStatus(t(lang, "status.supplierRenamed"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
-      setDbStatus(message || "Errore rinomina fornitore.");
+      setDbStatus(message || t(lang, "status.supplierRenameError"));
       setSupplierNameEdit(selectedSupplier.name);
     } finally {
       setDbBusy(false);
@@ -1004,10 +1014,10 @@ export default function App() {
         },
       }));
       await rebuildPriceIndex(fiche.ingredients);
-      setDbStatus("Prodotto rinominato.");
+      setDbStatus(t(lang, "status.productRenamed"));
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
-      setDbStatus(message || "Errore rinomina prodotto.");
+      setDbStatus(message || t(lang, "status.productRenameError"));
       setSupplierProductEdits((prev) => ({
         ...prev,
         [productId]: {
@@ -1069,6 +1079,7 @@ export default function App() {
     if (value == null) return "-";
     return unit ? `${value} ${unit}` : String(value);
   };
+  const locale = localeByLang[lang];
 
   const ficheHasContent = (data: FicheTechnique) => {
     if (data.title.trim() || data.category?.trim() || data.notes?.trim()) return true;
@@ -1089,7 +1100,7 @@ export default function App() {
       lastDbSnapshotRef.current = snapshot;
       return true;
     } catch {
-      setDbStatus("Errore salvataggio automatico. Resta nell'editor per non perdere dati.");
+      setDbStatus(t(lang, "status.autoSaveError"));
       return false;
     }
   };
@@ -1101,11 +1112,20 @@ export default function App() {
           <div className="brand-mark">FR</div>
           <div>
             <div className="brand-title">Fiches Recettes</div>
-            <div className="brand-sub">Schede tecniche pulite, pronte da stampare.</div>
+            <div className="brand-sub">{t(lang, "app.brandSub")}</div>
           </div>
         </div>
 
         <div className="toolbar">
+          <label className="field field-compact">
+            <span className="field-label">Lang</span>
+            <select className="input" value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
+              <option value="it">{t(lang, "lang.it")}</option>
+              <option value="fr">{t(lang, "lang.fr")}</option>
+              <option value="en">{t(lang, "lang.en")}</option>
+            </select>
+          </label>
+
           <button
             className={`btn btn-outline nav-btn ${view === "editor" ? "nav-btn--active" : ""}`}
             onClick={() => {
@@ -1114,7 +1134,7 @@ export default function App() {
               setDbStatus("");
             }}
           >
-            Nuova fiche
+            {t(lang, "app.newFiche")}
           </button>
 
           <button
@@ -1122,7 +1142,7 @@ export default function App() {
             onClick={onOpenLibrary}
             disabled={dbBusy}
           >
-            Libreria fiches
+            {t(lang, "app.library")}
           </button>
 
           <button
@@ -1130,7 +1150,7 @@ export default function App() {
             onClick={onOpenSuppliers}
             disabled={dbBusy}
           >
-            Fornitori
+            {t(lang, "app.suppliers")}
           </button>
 
           <button
@@ -1138,13 +1158,13 @@ export default function App() {
             onClick={onOpenProducts}
             disabled={dbBusy}
           >
-            Prodotti
+            {t(lang, "app.products")}
           </button>
 
           {view === "editor" ? (
             <div className="fiche-actions">
               <button className="btn btn-outline btn-fiche" onClick={() => downloadJson(fiche, `${fileNameBase}.json`)}>
-                Esporta JSON
+                {t(lang, "app.exportJson")}
               </button>
 
               <label className="btn btn-outline btn-fiche file-button">
@@ -1157,19 +1177,19 @@ export default function App() {
                     e.currentTarget.value = "";
                   }}
                 />
-                Importa JSON
+                {t(lang, "app.importJson")}
               </label>
 
               <button className="btn btn-primary btn-fiche" onClick={() => window.print()}>
-                Stampa
+                {t(lang, "app.print")}
               </button>
 
               <button className="btn btn-outline btn-fiche" onClick={onExportPdfOneClick}>
-                Esporta PDF
+                {t(lang, "app.exportPdf")}
               </button>
 
               <button className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>
-                Salva nel DB
+                {t(lang, "app.saveDb")}
               </button>
             </div>
 
@@ -1178,25 +1198,24 @@ export default function App() {
 
         {view !== "editor" ? (
           <div className="toolbar-hint">
-            Modalita: {" "}
+            {t(lang, "app.mode")}:{" "}
             <span className="mode-pill">
               {view === "library"
-                ? "Libreria fiches"
+                ? t(lang, "app.mode.library")
                 : view === "suppliers"
-                  ? "Fornitori"
+                  ? t(lang, "app.mode.suppliers")
                   : view === "products"
-                    ? "Prodotti"
-                    : "Listino fornitore"}
+                    ? t(lang, "app.mode.products")
+                    : t(lang, "app.mode.supplierDetail")}
             </span>
           </div>
         ) : null}
 
         {view === "editor" ? (
-  <div className="toolbar-hint">
-          Suggerimento: per un PDF con testo selezionabile usa <strong>Stampa / Salva PDF</strong>.
-          L&apos;export “1 click” è utile ma spesso rasterizza il contenuto.
-        </div>
-) : null}
+          <div className="toolbar-hint">
+            {t(lang, "app.pdfHint")} <strong>{t(lang, "app.print")}</strong>. {t(lang, "app.pdfHintRaster")}
+          </div>
+        ) : null}
         {dbStatus ? <div className="toolbar-hint">{dbStatus}</div> : null}
       </header>
 
@@ -1206,6 +1225,7 @@ export default function App() {
             <section className="editor">
               <FicheForm
                 fiche={fiche}
+                lang={lang}
                 onChange={setFiche}
                 getPriceForIngredient={getPriceForIngredient}
                 onPriceIndexRefresh={(ingredients) => rebuildPriceIndex(ingredients ?? fiche.ingredients)}
@@ -1214,7 +1234,7 @@ export default function App() {
 
             <section className="preview">
               <div ref={previewRef} className="preview-inner">
-                <FichePreview fiche={fiche} getPriceForIngredient={getPriceForIngredient} />
+                <FichePreview fiche={fiche} lang={lang} getPriceForIngredient={getPriceForIngredient} />
               </div>
             </section>
           </>
@@ -1222,13 +1242,13 @@ export default function App() {
           <section className="library">
             <div className="library-header">
               <div>
-                <h2 className="section-title">Libreria fiches</h2>
-                <p className="muted">Seleziona una fiche per aprirla nell’editor.</p>
+                <h2 className="section-title">{t(lang, "app.sectionLibraryTitle")}</h2>
+                <p className="muted">{t(lang, "app.sectionLibraryDesc")}</p>
               </div>
               <div className="library-actions">
                 <input
                   className="input"
-                  placeholder="Cerca per titolo..."
+                  placeholder={t(lang, "app.searchTitle")}
                   list="library-titles"
                   value={libraryQuery}
                   ref={librarySearchRef}
@@ -1240,10 +1260,10 @@ export default function App() {
                   ))}
                 </datalist>
                 <button className="btn btn-outline" onClick={onExportAllFiches} disabled={dbBusy}>
-                  Esporta tutte (JSON)
+                  {t(lang, "app.exportAllJson")}
                 </button>
                 <button className="btn btn-outline" onClick={onExportAllFichesPdfZip} disabled={dbBusy}>
-                  Esporta tutte (PDF ZIP)
+                  {t(lang, "app.exportAllPdfZip")}
                 </button>
                 <button
                   className="btn btn-outline"
@@ -1253,7 +1273,7 @@ export default function App() {
                   }}
                   disabled={importBusy}
                 >
-                  Torna all’editor
+                  {t(lang, "app.backToEditor")}
                 </button>
               </div>
             </div>
@@ -1261,7 +1281,7 @@ export default function App() {
             <div className="library-list library-list--index">
               {filteredLibrary.length === 0 ? (
                 <div className="library-empty">
-                  Nessuna fiche trovata. Salva una fiche per vederla qui.
+                  {t(lang, "app.noFiches")}
                 </div>
               ) : (
                 filteredLibrary.map((item) => (
@@ -1271,17 +1291,17 @@ export default function App() {
                       onClick={() => onSelectFromLibrary(item)}
                       disabled={dbBusy}
                     >
-                      <div className="library-title">{item.title || "Senza titolo"}</div>
+                      <div className="library-title">{item.title || t(lang, "app.untitled")}</div>
                       <div className="library-meta">
-                        Aggiornata: {new Date(item.updatedAt).toLocaleString()}
+                        {t(lang, "app.updatedAt", { value: new Date(item.updatedAt).toLocaleString(locale) })}
                       </div>
                     </button>
                     <button
                       className="icon-button icon-button--ghost library-delete"
                       onClick={() => onDeleteFromLibrary(item)}
                       disabled={dbBusy}
-                      aria-label="Elimina fiche"
-                      data-tooltip="Elimina"
+                      aria-label={t(lang, "app.deleteFicheAria")}
+                      data-tooltip={t(lang, "app.delete")}
                     >
                       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <path
@@ -1299,13 +1319,13 @@ export default function App() {
           <section className="library">
             <div className="library-header">
               <div>
-                <h2 className="section-title">Fornitori</h2>
-                <p className="muted">Gestisci l’elenco fornitori e apri il loro listino.</p>
+                <h2 className="section-title">{t(lang, "app.sectionSuppliersTitle")}</h2>
+                <p className="muted">{t(lang, "app.sectionSuppliersDesc")}</p>
               </div>
               <div className="library-actions">
                 <input
                   className="input"
-                  placeholder="Cerca fornitore..."
+                  placeholder={t(lang, "app.searchSupplier")}
                   list="supplier-names"
                   value={supplierQuery}
                   ref={supplierSearchRef}
@@ -1325,7 +1345,7 @@ export default function App() {
                     disabled={dbBusy || importBusy}
                     onChange={(e) => onImportSupplierCsv(e.target.files)}
                   />
-                  Importa CSV
+                  {t(lang, "app.importCsv")}
                 </label>
                 <button
                   className="btn btn-outline"
@@ -1334,7 +1354,7 @@ export default function App() {
                     setView("editor");
                   }}
                 >
-                  Torna all’editor
+                  {t(lang, "app.backToEditor")}
                 </button>
               </div>
             </div>
@@ -1344,18 +1364,18 @@ export default function App() {
             <div className="supplier-add supplier-add--simple">
               <input
                 className="input"
-                placeholder="Nuovo fornitore..."
+                placeholder={t(lang, "app.newSupplierPlaceholder")}
                 value={newSupplierName}
                 onChange={(e) => setNewSupplierName(e.target.value)}
               />
               <button className="btn btn-primary" onClick={onAddSupplier} disabled={dbBusy}>
-                Aggiungi fornitore
+                {t(lang, "app.addSupplier")}
               </button>
             </div>
 
             <div className="library-list">
               {filteredSuppliers.length === 0 ? (
-                <div className="library-empty">Nessun fornitore trovato.</div>
+                <div className="library-empty">{t(lang, "app.noSuppliers")}</div>
               ) : (
                 filteredSuppliers.map((supplier) => (
                   <div key={supplier.id} className="library-card library-card--row">
@@ -1366,7 +1386,7 @@ export default function App() {
                     >
                       <div className="library-title">{supplier.name}</div>
                       <div className="library-meta">
-                        Aggiornato: {new Date(supplier.updatedAt).toLocaleString()}
+                        {t(lang, "app.updatedAt", { value: new Date(supplier.updatedAt).toLocaleString(locale) })}
                       </div>
                     </button>
                     <button
@@ -1374,7 +1394,7 @@ export default function App() {
                       onClick={() => onDeleteSupplier(supplier)}
                       disabled={dbBusy}
                     >
-                      Elimina
+                      {t(lang, "app.delete")}
                     </button>
                   </div>
                 ))
@@ -1385,19 +1405,19 @@ export default function App() {
           <section className="library">
             <div className="library-header">
               <div>
-                <h2 className="section-title">Prodotti</h2>
-                <p className="muted">Tutti i prodotti dei fornitori in ordine alfabetico.</p>
+                <h2 className="section-title">{t(lang, "app.sectionProductsTitle")}</h2>
+                <p className="muted">{t(lang, "app.sectionProductsDesc")}</p>
               </div>
               <div className="library-actions">
                 <input
                   className="input"
-                  placeholder="Cerca prodotto o fornitore..."
+                  placeholder={t(lang, "app.searchProductOrSupplier")}
                   value={allProductsQuery}
                   ref={productsSearchRef}
                   onChange={(e) => setAllProductsQuery(e.target.value)}
                 />
                 <button className="btn btn-outline" onClick={() => setView("editor")}>
-                  Torna all’editor
+                  {t(lang, "app.backToEditor")}
                 </button>
               </div>
             </div>
@@ -1405,14 +1425,14 @@ export default function App() {
             <div className="library-list library-list--index">
               {filteredAllProducts.length > 0 ? (
                 <div className="product-index-row product-index-row--header">
-                  <div className="product-index-name">Prodotto</div>
-                  <div className="product-index-supplier">Fornitore</div>
-                  <div className="product-index-price">Prezzo</div>
-                  <div className="product-index-updated">Aggiornato</div>
+                  <div className="product-index-name">{t(lang, "app.productHeaderName")}</div>
+                  <div className="product-index-supplier">{t(lang, "app.productHeaderSupplier")}</div>
+                  <div className="product-index-price">{t(lang, "app.productHeaderPrice")}</div>
+                  <div className="product-index-updated">{t(lang, "app.productHeaderUpdated")}</div>
                 </div>
               ) : null}
               {filteredAllProducts.length === 0 ? (
-                <div className="library-empty">Nessun prodotto trovato.</div>
+                <div className="library-empty">{t(lang, "app.noProducts")}</div>
               ) : (
                 filteredAllProducts.map((product) => (
                   <div key={product.id} className="product-index-row">
@@ -1422,7 +1442,7 @@ export default function App() {
                       {formatUnitPrice(product.unitPrice, product.unit)}
                     </div>
                     <div className="product-index-updated">
-                      {new Date(product.updatedAt).toLocaleDateString()}
+                      {new Date(product.updatedAt).toLocaleDateString(locale)}
                     </div>
                   </div>
                 ))
@@ -1433,14 +1453,14 @@ export default function App() {
           <section className="library">
             <div className="library-header">
               <div>
-                <h2 className="section-title">Listino fornitore</h2>
+                <h2 className="section-title">{t(lang, "app.sectionSupplierDetailTitle")}</h2>
                 <div className="supplier-title-row">
                   <input
                     className="input"
                     value={supplierNameEdit}
                     onChange={(e) => setSupplierNameEdit(e.target.value)}
                     onBlur={() => onRenameSupplier(supplierNameEdit)}
-                    placeholder="Nome fornitore"
+                    placeholder={t(lang, "app.supplierNamePlaceholder")}
                     disabled={dbBusy}
                   />
                   <button
@@ -1448,20 +1468,20 @@ export default function App() {
                     onClick={() => onRenameSupplier(supplierNameEdit)}
                     disabled={dbBusy}
                   >
-                    Salva nome
+                    {t(lang, "app.saveName")}
                   </button>
                 </div>
               </div>
               <div className="library-actions">
                 <input
                   className="input"
-                  placeholder="Cerca prodotto..."
+                  placeholder={t(lang, "app.searchProduct")}
                   value={supplierProductQuery}
                   ref={supplierProductsSearchRef}
                   onChange={(e) => setSupplierProductQuery(e.target.value)}
                 />
                 <button className="btn btn-outline" onClick={() => setView("suppliers")}>
-                  Torna ai fornitori
+                  {t(lang, "app.backToSuppliers")}
                 </button>
               </div>
             </div>
@@ -1469,7 +1489,7 @@ export default function App() {
             <div className="supplier-add">
               <input
                 className="input"
-                placeholder="Prodotto..."
+                placeholder={t(lang, "app.productPlaceholder")}
                 value={newProductName}
                 onChange={(e) => setNewProductName(e.target.value)}
               />
@@ -1478,7 +1498,7 @@ export default function App() {
                 type="number"
                 min={0}
                 step="0.01"
-                placeholder="Prezzo unità"
+                placeholder={t(lang, "app.unitPricePlaceholder")}
                 value={newProductPrice}
                 onChange={(e) => setNewProductPrice(e.target.value)}
               />
@@ -1487,7 +1507,7 @@ export default function App() {
                 value={newProductUnit}
                 onChange={(e) => setNewProductUnit(e.target.value)}
               >
-                <option value="">Unità</option>
+                <option value="">{t(lang, "app.unitLabel")}</option>
                 <option value="kg">€/kg</option>
                 <option value="g">€/g</option>
                 <option value="l">€/l</option>
@@ -1496,13 +1516,13 @@ export default function App() {
                 <option value="pc">€/pz</option>
               </select>
               <button className="btn btn-primary" onClick={onAddSupplierProduct} disabled={dbBusy}>
-                Aggiungi prodotto
+                {t(lang, "app.addProduct")}
               </button>
             </div>
 
             <div className="library-list supplier-products-list">
               {filteredSupplierProducts.length === 0 ? (
-                <div className="library-empty">Nessun prodotto nel listino.</div>
+                <div className="library-empty">{t(lang, "app.noSupplierProducts")}</div>
               ) : (
                 filteredSupplierProducts.map((product) => (
                   <div key={product.id} className="library-card supplier-product">
@@ -1545,7 +1565,7 @@ export default function App() {
                           const unit = edit?.unit ? edit.unit : null;
                           onUpdateSupplierProduct(product.id, price, unit);
                         }}
-                        placeholder="Prezzo"
+                        placeholder={t(lang, "app.pricePlaceholder")}
                       />
                       <select
                         className="input input-unit"
@@ -1567,7 +1587,7 @@ export default function App() {
                           onUpdateSupplierProduct(product.id, price, unit);
                         }}
                       >
-                        <option value="">Unità</option>
+                        <option value="">{t(lang, "app.unitLabel")}</option>
                         <option value="kg">€/kg</option>
                         <option value="g">€/g</option>
                         <option value="l">€/l</option>
@@ -1580,14 +1600,14 @@ export default function App() {
                         onClick={() => onSaveSupplierProduct(product)}
                         disabled={dbBusy}
                       >
-                        Salva
+                        {t(lang, "app.save")}
                       </button>
                       <button
                         className="btn btn-ghost"
                         onClick={() => onDeleteSupplierProduct(product.id)}
                         disabled={dbBusy}
                       >
-                        Elimina
+                        {t(lang, "app.delete")}
                       </button>
                     </div>
                   </div>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FicheTechnique, IngredientLine } from "../types/fiche";
 import { computeIngredientCost, formatCurrency } from "../utils/costing";
+import { t, type Lang } from "../i18n";
 import {
   listSupplierProducts,
   listSuppliers,
@@ -12,6 +13,7 @@ import {
 
 type Props = {
   fiche: FicheTechnique;
+  lang: Lang;
   onChange: (next: FicheTechnique) => void;
   getPriceForIngredient: (
     ing: FicheTechnique["ingredients"][number]
@@ -27,7 +29,7 @@ function updateIngredient(
   return ingredients.map((ing, i) => (i === index ? { ...ing, ...patch } : ing));
 }
 
-export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPriceIndexRefresh }: Props) {
+export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient, onPriceIndexRefresh }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [productsBySupplier, setProductsBySupplier] = useState<Record<string, SupplierProduct[]>>({});
   const [priceDrafts, setPriceDrafts] = useState<Record<string, { unitPrice: string; unit: string }>>({});
@@ -161,33 +163,32 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
     return created;
   };
 
-
   return (
     <div className="form">
-      <h2 className="section-title">Editor fiche</h2>
+      <h2 className="section-title">{t(lang, "form.editorTitle")}</h2>
 
       <label className="field">
-        <span className="field-label">Titolo</span>
+        <span className="field-label">{t(lang, "form.title")}</span>
         <input
           className="input"
           value={fiche.title}
           onChange={(e) => set({ title: e.target.value })}
-          placeholder="Es: Risotto ai funghi"
+          placeholder={t(lang, "form.titlePlaceholder")}
         />
       </label>
 
       <div className="field-row">
         <label className="field">
-          <span className="field-label">Categoria (opzionale)</span>
+          <span className="field-label">{t(lang, "form.category")}</span>
           <input
             className="input"
             value={fiche.category ?? ""}
             onChange={(e) => set({ category: e.target.value })}
-            placeholder="Es: Primo, Dessert..."
+            placeholder={t(lang, "form.categoryPlaceholder")}
           />
         </label>
         <label className="field field-compact">
-          <span className="field-label">Porzioni</span>
+          <span className="field-label">{t(lang, "form.portions")}</span>
           <input
             className="input"
             type="number"
@@ -201,9 +202,9 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
       <div className="divider" />
 
       <div className="section-header">
-        <h3>Ingredienti</h3>
+        <h3>{t(lang, "form.ingredients")}</h3>
         <button className="btn btn-ghost" type="button" onClick={addIngredient}>
-          + Aggiungi ingrediente
+          {t(lang, "form.addIngredient")}
         </button>
       </div>
 
@@ -252,7 +253,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                     await onPriceIndexRefresh(nextIngredients);
                   }
                 }}
-                placeholder="Ingrediente / Prodotto"
+                placeholder={t(lang, "form.ingredientPlaceholder")}
               />
               <datalist id={`supplier-products-${idx}`}>
                 {(ing.supplierId ? productsBySupplier[ing.supplierId] || [] : []).map((p) => (
@@ -263,15 +264,20 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 className="input"
                 value={ing.qty}
                 onChange={(e) => set({ ingredients: updateIngredient(fiche.ingredients, idx, { qty: e.target.value }) })}
-                placeholder="Quantità"
+                placeholder={t(lang, "form.qtyPlaceholder")}
               />
               <input
                 className="input"
                 value={ing.note ?? ""}
                 onChange={(e) => set({ ingredients: updateIngredient(fiche.ingredients, idx, { note: e.target.value }) })}
-                placeholder="Note (opz.)"
+                placeholder={t(lang, "form.notePlaceholder")}
               />
-              <button className="icon-button icon-small" type="button" onClick={() => removeIngredient(idx)} title="Rimuovi">
+              <button
+                className="icon-button icon-small"
+                type="button"
+                onClick={() => removeIngredient(idx)}
+                title={t(lang, "form.remove")}
+              >
                 x
               </button>
               <button
@@ -279,7 +285,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 type="button"
                 onClick={() => set({ ingredients: moveItem(fiche.ingredients, idx, idx - 1) })}
                 disabled={idx === 0}
-                title="Sposta su"
+                title={t(lang, "form.moveUp")}
               >
                 ^
               </button>
@@ -288,7 +294,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 type="button"
                 onClick={() => set({ ingredients: moveItem(fiche.ingredients, idx, idx + 1) })}
                 disabled={idx === fiche.ingredients.length - 1}
-                title="Sposta giu"
+                title={t(lang, "form.moveDown")}
               >
                 v
               </button>
@@ -300,7 +306,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                     ingredients: insertItem(fiche.ingredients, idx + 1, { name: "", qty: "", note: "" }),
                   })
                 }
-                title="Aggiungi sotto"
+                title={t(lang, "form.addBelow")}
               >
                 +
               </button>
@@ -336,7 +342,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   });
                   await loadProducts(supplier.id);
                 }}
-                placeholder="Fornitore"
+                placeholder={t(lang, "form.supplierPlaceholder")}
               />
               <datalist id={`supplier-list-${idx}`}>
                 {suppliers.map((s) => (
@@ -369,8 +375,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   const draft = priceDrafts[String(idx)];
                   const unitPrice =
                     draft?.unitPrice === "" ? null : Number(draft?.unitPrice ?? getPriceForIngredient(ing)?.unitPrice ?? "");
-                  const unit =
-                    (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
+                  const unit = (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
                   const created = await writeSupplierProduct(supplierId, ing.name, unitPrice, unit);
                   if (created) {
                     const nextIngredients = updateIngredient(fiche.ingredients, idx, {
@@ -385,7 +390,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                     return next;
                   });
                 }}
-                placeholder="Prezzo unita"
+                placeholder={t(lang, "form.unitPricePlaceholder")}
               />
               <select
                 className="input input-unit"
@@ -405,8 +410,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   const draft = priceDrafts[String(idx)];
                   const unitPrice =
                     draft?.unitPrice === "" ? null : Number(draft?.unitPrice ?? getPriceForIngredient(ing)?.unitPrice ?? "");
-                  const unit =
-                    (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
+                  const unit = (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
                   const created = await writeSupplierProduct(supplierId, ing.name, unitPrice, unit);
                   if (created) {
                     const nextIngredients = updateIngredient(fiche.ingredients, idx, {
@@ -422,13 +426,13 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   });
                 }}
               >
-                <option value="">Unita</option>
+                <option value="">{t(lang, "form.unitLabel")}</option>
                 <option value="kg">EUR/kg</option>
                 <option value="g">EUR/g</option>
                 <option value="l">EUR/l</option>
                 <option value="ml">EUR/ml</option>
                 <option value="cl">EUR/cl</option>
-                <option value="pc">EUR/pz</option>
+                <option value="pc">EUR/pc</option>
               </select>
               <div className="cost-chip">
                 {(() => {
@@ -454,9 +458,9 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
       <div className="divider" />
 
       <div className="section-header">
-        <h3>Procedura</h3>
+        <h3>{t(lang, "form.procedure")}</h3>
         <button className="btn btn-ghost" type="button" onClick={addStep}>
-          + Aggiungi step
+          {t(lang, "form.addStep")}
         </button>
       </div>
 
@@ -470,7 +474,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 onChange={(e) => set({ steps: fiche.steps.map((x, i) => (i === idx ? e.target.value : x)) })}
                 placeholder={`Step ${idx + 1}`}
               />
-              <button className="icon-button icon-small" type="button" onClick={() => removeStep(idx)} title="Rimuovi">
+              <button className="icon-button icon-small" type="button" onClick={() => removeStep(idx)} title={t(lang, "form.remove")}>
                 x
               </button>
               <button
@@ -478,7 +482,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 type="button"
                 onClick={() => set({ steps: moveItem(fiche.steps, idx, idx - 1) })}
                 disabled={idx === 0}
-                title="Sposta su"
+                title={t(lang, "form.moveUp")}
               >
                 ^
               </button>
@@ -487,7 +491,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 type="button"
                 onClick={() => set({ steps: moveItem(fiche.steps, idx, idx + 1) })}
                 disabled={idx === fiche.steps.length - 1}
-                title="Sposta giu"
+                title={t(lang, "form.moveDown")}
               >
                 v
               </button>
@@ -495,7 +499,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 className="icon-button icon-small"
                 type="button"
                 onClick={() => set({ steps: insertItem(fiche.steps, idx + 1, "") })}
-                title="Aggiungi sotto"
+                title={t(lang, "form.addBelow")}
               >
                 +
               </button>
@@ -507,9 +511,9 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
       <div className="divider" />
 
       <div className="section-header">
-        <h3>Attrezzatura (opz.)</h3>
+        <h3>{t(lang, "form.equipment")}</h3>
         <button className="btn btn-ghost" type="button" onClick={addEquipment}>
-          + Aggiungi attrezzo
+          {t(lang, "form.addEquipment")}
         </button>
       </div>
 
@@ -520,9 +524,9 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
               className="input"
               value={eq}
               onChange={(e) => set({ equipment: fiche.equipment.map((x, i) => (i === idx ? e.target.value : x)) })}
-              placeholder="Es: planetaria, forno ventilato..."
+              placeholder={t(lang, "form.equipmentPlaceholder")}
             />
-            <button className="icon-button" type="button" onClick={() => removeEquipment(idx)} title="Rimuovi">
+            <button className="icon-button" type="button" onClick={() => removeEquipment(idx)} title={t(lang, "form.remove")}>
               x
             </button>
           </div>
@@ -532,9 +536,9 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
       <div className="divider" />
 
       <div className="section-header">
-        <h3>Allergeni (opz.)</h3>
+        <h3>{t(lang, "form.allergens")}</h3>
         <button className="btn btn-ghost" type="button" onClick={addAllergen}>
-          + Aggiungi allergene
+          {t(lang, "form.addAllergen")}
         </button>
       </div>
 
@@ -545,9 +549,9 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
               className="input"
               value={al}
               onChange={(e) => set({ allergens: fiche.allergens.map((x, i) => (i === idx ? e.target.value : x)) })}
-              placeholder="Es: glutine, latte..."
+              placeholder={t(lang, "form.allergenPlaceholder")}
             />
-            <button className="icon-button" type="button" onClick={() => removeAllergen(idx)} title="Rimuovi">
+            <button className="icon-button" type="button" onClick={() => removeAllergen(idx)} title={t(lang, "form.remove")}>
               x
             </button>
           </div>
@@ -556,12 +560,12 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
 
       <div className="divider" />
 
-      <h3>Note (opz.)</h3>
+      <h3>{t(lang, "form.notes")}</h3>
       <textarea
         className="input textarea"
         value={fiche.notes ?? ""}
         onChange={(e) => set({ notes: e.target.value })}
-        placeholder="Note di servizio, conservazione, impiattamento..."
+        placeholder={t(lang, "form.notesPlaceholder")}
       />
     </div>
   );
