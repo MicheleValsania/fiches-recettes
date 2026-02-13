@@ -225,8 +225,7 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   });
                 }}
                 onBlur={async (e) => {
-                  let supplierId = ing.supplierId;
-                  supplierId = await ensureSupplierId(ing, idx);
+                  const supplierId = await ensureSupplierId(ing, idx);
                   if (!supplierId) return;
                   const value = e.currentTarget.value;
                   if (!value.trim()) return;
