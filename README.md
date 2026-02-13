@@ -170,3 +170,13 @@ src/
 - Rinomina fornitori e prodotti con propagazione alle fiche.
 - Eliminazione fornitori con pulizia riferimenti nelle fiche.
 - Script di avvio automatico e backup DB programmato.
+
+## Aggiornamenti (2026-02-13)
+- Export massivo in PDF ZIP: puoi esportare tutte le fiches in un archivio unico.
+- Nuova sezione Attrezzatura nell'editor fiche.
+- Build TypeScript ripulita: errori bloccanti risolti.
+- i18n runtime con switch lingua IT/FR/EN e persistenza preferenza in localStorage.
+
+## Nota operativa
+- L'app e' in uso quotidiano reale (fornitori, prodotti, decine di fiches tecniche).
+- Questo uso continuo copre smoke test pratici su editor, libreria, listini e flussi di export/import.
