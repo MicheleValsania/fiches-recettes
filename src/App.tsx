@@ -1071,7 +1071,7 @@ export default function App() {
   };
 
   const ficheHasContent = (data: FicheTechnique) => {
-    if (data.title.trim() || data.category.trim() || data.notes?.trim()) return true;
+    if (data.title.trim() || data.category?.trim() || data.notes?.trim()) return true;
     if (data.ingredients.some((ing) => ing.name.trim() || ing.qty.trim() || ing.note?.trim())) return true;
     if (data.steps.some((step) => step.trim())) return true;
     if (data.allergens.some((al) => al.trim())) return true;
