@@ -158,7 +158,6 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
         a.name.localeCompare(b.name)
       ),
     }));
-    await onPriceIndexRefresh();
     return created;
   };
 
