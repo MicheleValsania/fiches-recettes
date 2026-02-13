@@ -535,6 +535,31 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
       <div className="divider" />
 
       <div className="section-header">
+        <h3>Attrezzatura (opz.)</h3>
+        <button className="btn btn-ghost" type="button" onClick={addEquipment}>
+          + Aggiungi attrezzo
+        </button>
+      </div>
+
+      <div className="list">
+        {fiche.equipment.map((eq, idx) => (
+          <div key={idx} className="grid-row grid-single">
+            <input
+              className="input"
+              value={eq}
+              onChange={(e) => set({ equipment: fiche.equipment.map((x, i) => (i === idx ? e.target.value : x)) })}
+              placeholder="Es: planetaria, forno ventilato..."
+            />
+            <button className="icon-button" type="button" onClick={() => removeEquipment(idx)} title="Rimuovi">
+              x
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="divider" />
+
+      <div className="section-header">
         <h3>Allergeni (opz.)</h3>
         <button className="btn btn-ghost" type="button" onClick={addAllergen}>
           + Aggiungi allergene
