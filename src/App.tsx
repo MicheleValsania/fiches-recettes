@@ -176,21 +176,6 @@ export default function App() {
     }
   }
 
-  async function onLoadDb() {
-    try {
-      setDbBusy(true);
-      const loaded = await loadFicheFromDb(fiche.id);
-      const merged = { ...newFiche(), ...loaded, updatedAt: new Date().toISOString() };
-      setFiche(merged);
-      lastDbSnapshotRef.current = JSON.stringify(merged);
-      setDbStatus("Fiche caricata dal DB.");
-    } catch {
-      setDbStatus("Nessuna fiche trovata con questo ID.");
-    } finally {
-      setDbBusy(false);
-    }
-  }
-
   async function onOpenLibrary() {
     try {
       setDbBusy(true);

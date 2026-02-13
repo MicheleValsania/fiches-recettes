@@ -30,7 +30,6 @@ function updateIngredient(
 export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPriceIndexRefresh }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [productsBySupplier, setProductsBySupplier] = useState<Record<string, SupplierProduct[]>>({});
-  const [supplierBusy, setSupplierBusy] = useState(false);
   const [priceDrafts, setPriceDrafts] = useState<Record<string, { unitPrice: string; unit: string }>>({});
 
   useEffect(() => {
@@ -228,41 +227,31 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 }}
                 onBlur={async (e) => {
                   let supplierId = ing.supplierId;
-                  try {
-                    setSupplierBusy(true);
-                    supplierId = await ensureSupplierId(ing, idx);
-                  } finally {
-                    setSupplierBusy(false);
-                  }
+                  supplierId = await ensureSupplierId(ing, idx);
                   if (!supplierId) return;
                   const value = e.currentTarget.value;
                   if (!value.trim()) return;
-                  try {
-                    setSupplierBusy(true);
-                    const items = await loadProducts(supplierId);
-                    const match = items.find((p) => p.name.toLowerCase() === value.toLowerCase());
-                    if (match) {
-                      const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                        name: match.name,
-                        supplierProductId: match.id,
-                        unitPrice: undefined,
-                        unitPriceUnit: undefined,
-                      });
-                      set({ ingredients: nextIngredients });
-                      await onPriceIndexRefresh(nextIngredients);
-                      return;
-                    }
-                    const created = await ensureSupplierProduct(supplierId, value, null, null);
-                    if (created) {
-                      const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                        name: created.name,
-                        supplierProductId: created.id,
-                      });
-                      set({ ingredients: nextIngredients });
-                      await onPriceIndexRefresh(nextIngredients);
-                    }
-                  } finally {
-                    setSupplierBusy(false);
+                  const items = await loadProducts(supplierId);
+                  const match = items.find((p) => p.name.toLowerCase() === value.toLowerCase());
+                  if (match) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      name: match.name,
+                      supplierProductId: match.id,
+                      unitPrice: undefined,
+                      unitPriceUnit: undefined,
+                    });
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
+                    return;
+                  }
+                  const created = await ensureSupplierProduct(supplierId, value, null, null);
+                  if (created) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      name: created.name,
+                      supplierProductId: created.id,
+                    });
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
                   }
                 }}
                 placeholder="Ingrediente / Prodotto"
@@ -339,20 +328,15 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                 onBlur={async (e) => {
                   const value = e.currentTarget.value;
                   if (!value.trim()) return;
-                  try {
-                    setSupplierBusy(true);
-                    const supplier = await ensureSupplier(value);
-                    if (!supplier) return;
-                    set({
-                      ingredients: updateIngredient(fiche.ingredients, idx, {
-                        supplier: supplier.name,
-                        supplierId: supplier.id,
-                      }),
-                    });
-                    await loadProducts(supplier.id);
-                  } finally {
-                    setSupplierBusy(false);
-                  }
+                  const supplier = await ensureSupplier(value);
+                  if (!supplier) return;
+                  set({
+                    ingredients: updateIngredient(fiche.ingredients, idx, {
+                      supplier: supplier.name,
+                      supplierId: supplier.id,
+                    }),
+                  });
+                  await loadProducts(supplier.id);
                 }}
                 placeholder="Fornitore"
               />
@@ -382,31 +366,26 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   }))
                 }
                 onBlur={async () => {
-                  try {
-                    setSupplierBusy(true);
-                    const supplierId = await ensureSupplierId(ing, idx);
-                    if (!supplierId || !ing.name.trim()) return;
-                    const draft = priceDrafts[String(idx)];
-                    const unitPrice =
-                      draft?.unitPrice === "" ? null : Number(draft?.unitPrice ?? getPriceForIngredient(ing)?.unitPrice ?? "");
-                    const unit =
-                      (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
-                    const created = await writeSupplierProduct(supplierId, ing.name, unitPrice, unit);
-                    if (created) {
-                      const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                        supplierProductId: created.id,
-                      });
-                      set({ ingredients: nextIngredients });
-                      await onPriceIndexRefresh(nextIngredients);
-                    }
-                    setPriceDrafts((prev) => {
-                      const next = { ...prev };
-                      delete next[String(idx)];
-                      return next;
+                  const supplierId = await ensureSupplierId(ing, idx);
+                  if (!supplierId || !ing.name.trim()) return;
+                  const draft = priceDrafts[String(idx)];
+                  const unitPrice =
+                    draft?.unitPrice === "" ? null : Number(draft?.unitPrice ?? getPriceForIngredient(ing)?.unitPrice ?? "");
+                  const unit =
+                    (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
+                  const created = await writeSupplierProduct(supplierId, ing.name, unitPrice, unit);
+                  if (created) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      supplierProductId: created.id,
                     });
-                  } finally {
-                    setSupplierBusy(false);
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
                   }
+                  setPriceDrafts((prev) => {
+                    const next = { ...prev };
+                    delete next[String(idx)];
+                    return next;
+                  });
                 }}
                 placeholder="Prezzo unita"
               />
@@ -423,31 +402,26 @@ export default function FicheForm({ fiche, onChange, getPriceForIngredient, onPr
                   }))
                 }
                 onBlur={async () => {
-                  try {
-                    setSupplierBusy(true);
-                    const supplierId = await ensureSupplierId(ing, idx);
-                    if (!supplierId || !ing.name.trim()) return;
-                    const draft = priceDrafts[String(idx)];
-                    const unitPrice =
-                      draft?.unitPrice === "" ? null : Number(draft?.unitPrice ?? getPriceForIngredient(ing)?.unitPrice ?? "");
-                    const unit =
-                      (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
-                    const created = await writeSupplierProduct(supplierId, ing.name, unitPrice, unit);
-                    if (created) {
-                      const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                        supplierProductId: created.id,
-                      });
-                      set({ ingredients: nextIngredients });
-                      await onPriceIndexRefresh(nextIngredients);
-                    }
-                    setPriceDrafts((prev) => {
-                      const next = { ...prev };
-                      delete next[String(idx)];
-                      return next;
+                  const supplierId = await ensureSupplierId(ing, idx);
+                  if (!supplierId || !ing.name.trim()) return;
+                  const draft = priceDrafts[String(idx)];
+                  const unitPrice =
+                    draft?.unitPrice === "" ? null : Number(draft?.unitPrice ?? getPriceForIngredient(ing)?.unitPrice ?? "");
+                  const unit =
+                    (draft?.unit ?? getPriceForIngredient(ing)?.unit ?? "") || null;
+                  const created = await writeSupplierProduct(supplierId, ing.name, unitPrice, unit);
+                  if (created) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      supplierProductId: created.id,
                     });
-                  } finally {
-                    setSupplierBusy(false);
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
                   }
+                  setPriceDrafts((prev) => {
+                    const next = { ...prev };
+                    delete next[String(idx)];
+                    return next;
+                  });
                 }}
               >
                 <option value="">Unita</option>
