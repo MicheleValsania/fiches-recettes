@@ -14,44 +14,93 @@
   backdrop-filter: blur(12px);
 }
 
-.brand {
-  display: flex;
-  align-items: center;
+.topbar-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
   gap: 12px;
 }
 
-.brand-mark {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #f97316, #fb7185);
-  color: white;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+.brand {
+  text-align: center;
+}
+
+.topbar-spacer {
+  min-height: 1px;
 }
 
 .brand-title {
   font-family: "Fraunces", "Times New Roman", serif;
-  font-size: 22px;
+  font-size: 52px;
   font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+}
+
+.brand-logo-image {
+  display: block;
+  height: 86px;
+  width: auto;
+  max-width: min(62vw, 460px);
+  margin: 0 auto;
 }
 
 .brand-sub {
+  margin-top: 8px;
   font-size: 13px;
   color: var(--muted);
 }
 
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+
+.lang-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  background: white;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.lang-select {
+  min-width: 148px;
+  height: 44px;
+  font-size: 16px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .toolbar {
-  margin-top: 14px;
+  margin-top: 10px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
+.toolbar .btn {
+  min-height: 44px;
+  padding: 11px 22px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .nav-btn {
   background: white;
+  border-color: rgba(30, 64, 175, 0.55);
+  color: #0f172a;
+  font-weight: 700;
+  min-height: 40px;
+  padding: 9px 18px;
+  font-size: 14px;
 }
 
 .nav-btn--active {
@@ -64,16 +113,16 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  padding: 6px 8px;
-  border-radius: 12px;
   margin-left: auto;
-  background: rgba(30, 64, 175, 0.08);
-  border: 1px solid rgba(30, 64, 175, 0.2);
 }
 
 .btn-fiche {
   border-color: rgba(30, 64, 175, 0.55);
   color: #0f172a;
+  min-height: 40px;
+  padding: 9px 18px;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .btn-fiche.btn-primary {
@@ -557,9 +606,14 @@
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
+  min-height: 36px;
   padding: 8px 16px;
   font-size: 13px;
+  line-height: 1.1;
   border: 1px solid transparent;
   cursor: pointer;
   font-weight: 600;
@@ -731,6 +785,26 @@
 @media (max-width: 720px) {
   .topbar {
     padding: 16px;
+  }
+
+  .topbar-head {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .lang-switch {
+    justify-self: end;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .brand-title {
+    font-size: 40px;
+  }
+
+  .brand-logo-image {
+    height: 64px;
+    max-width: min(84vw, 360px);
   }
 
   .layout {

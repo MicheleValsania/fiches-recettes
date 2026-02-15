@@ -22,8 +22,6 @@ const messages = {
     "app.mode.suppliers": "Fornitori",
     "app.mode.products": "Prodotti",
     "app.mode.supplierDetail": "Listino fornitore",
-    "app.pdfHint": "Suggerimento: per un PDF con testo selezionabile usa Stampa / Salva PDF.",
-    "app.pdfHintRaster": "L'export 1 click e utile ma spesso rasterizza il contenuto.",
     "app.searchTitle": "Cerca per titolo...",
     "app.exportAllJson": "Esporta tutte (JSON)",
     "app.exportAllPdfZip": "Esporta tutte (PDF ZIP)",

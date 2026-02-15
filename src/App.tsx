@@ -1080,6 +1080,7 @@ export default function App() {
     return unit ? `${value} ${unit}` : String(value);
   };
   const locale = localeByLang[lang];
+  const langFlag: Record<Lang, string> = { it: "🇮🇹", fr: "🇫🇷", en: "🇬🇧" };
 
   const ficheHasContent = (data: FicheTechnique) => {
     if (data.title.trim() || data.category?.trim() || data.notes?.trim()) return true;
@@ -1108,24 +1109,27 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar no-print">
-        <div className="brand">
-          <div className="brand-mark">FR</div>
-          <div>
-            <div className="brand-title">Fiches Recettes</div>
-            <div className="brand-sub">{t(lang, "app.brandSub")}</div>
+        <div className="topbar-head">
+          <div className="topbar-spacer" aria-hidden="true" />
+          <div className="brand">
+            <img className="brand-logo-image" src="/chefside-logo.svg" alt="Chef Side" />
+          </div>
+          <div className="lang-switch">
+            <span className="lang-flag" aria-hidden="true">{langFlag[lang]}</span>
+            <select
+              className="input lang-select"
+              value={lang}
+              aria-label="Language"
+              onChange={(e) => setLang(e.target.value as Lang)}
+            >
+              <option value="en">English</option>
+              <option value="fr">Français</option>
+              <option value="it">Italiano</option>
+            </select>
           </div>
         </div>
 
         <div className="toolbar">
-          <label className="field field-compact">
-            <span className="field-label">Lang</span>
-            <select className="input" value={lang} onChange={(e) => setLang(e.target.value as Lang)}>
-              <option value="it">{t(lang, "lang.it")}</option>
-              <option value="fr">{t(lang, "lang.fr")}</option>
-              <option value="en">{t(lang, "lang.en")}</option>
-            </select>
-          </label>
-
           <button
             className={`btn btn-outline nav-btn ${view === "editor" ? "nav-btn--active" : ""}`}
             onClick={() => {
@@ -1180,7 +1184,7 @@ export default function App() {
                 {t(lang, "app.importJson")}
               </label>
 
-              <button className="btn btn-primary btn-fiche" onClick={() => window.print()}>
+              <button className="btn btn-outline btn-fiche" onClick={() => window.print()}>
                 {t(lang, "app.print")}
               </button>
 
@@ -1211,11 +1215,6 @@ export default function App() {
           </div>
         ) : null}
 
-        {view === "editor" ? (
-          <div className="toolbar-hint">
-            {t(lang, "app.pdfHint")} <strong>{t(lang, "app.print")}</strong>. {t(lang, "app.pdfHintRaster")}
-          </div>
-        ) : null}
         {dbStatus ? <div className="toolbar-hint">{dbStatus}</div> : null}
       </header>
 
