@@ -39,9 +39,9 @@
 
 .brand-logo-image {
   display: block;
-  height: 86px;
+  height: 104px;
   width: auto;
-  max-width: min(62vw, 460px);
+  max-width: min(66vw, 560px);
   margin: 0 auto;
 }
 
@@ -803,8 +803,8 @@
   }
 
   .brand-logo-image {
-    height: 64px;
-    max-width: min(84vw, 360px);
+    height: 76px;
+    max-width: min(88vw, 420px);
   }
 
   .layout {
