@@ -64,18 +64,19 @@ Dopo ogni riavvio del PC devi riaprire Docker Desktop, poi puoi usare `npm run d
 ```bash
 npm run backup:db
 ```
-Salva i backup in `backups/` in formato `.dump` e mantiene gli ultimi 7 file.
+Salva i backup in `backups/` in formato `.dump`, conserva i backup degli ultimi 7 giorni e applica un cap di sicurezza sui file mantenuti.
+Scrive anche un log in `backups/backup.log`.
 
 ### Backup automatico ogni giorno alle 08:00 e 20:00 (Windows Task Scheduler)
 Esegui questi comandi una volta (adatta il percorso se il progetto è altrove):
 ```powershell
-schtasks /Create /SC DAILY /ST 08:00 /TN "Fiches Backup 08" /TR "powershell -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
-schtasks /Create /SC DAILY /ST 20:00 /TN "Fiches Backup 20" /TR "powershell -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
+schtasks /Create /F /SC DAILY /ST 08:00 /TN "Fiches Backup 08" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
+schtasks /Create /F /SC DAILY /ST 20:00 /TN "Fiches Backup 20" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
 ```
 
 Note:
 - Docker Desktop deve essere avviato per eseguire il backup.
-- Per cambiare retention/frequenza, modifica `scripts/backup.ps1`.
+- Per cambiare retention/frequenza, modifica i parametri `KeepDays` e `Keep` in `scripts/backup.ps1`.
 
 ## Variabili DB (opzionale)
 Il backend legge queste variabili d’ambiente:
