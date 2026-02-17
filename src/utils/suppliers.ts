@@ -9,6 +9,9 @@ export type SupplierProduct = {
   id: string;
   supplierId: string;
   name: string;
+  supplierCode: string | null;
+  sourcePrice: number | null;
+  sourceUnit: string | null;
   unitPrice: number | null;
   unit: string | null;
   updatedAt: string;
@@ -41,13 +44,16 @@ export async function listSupplierProducts(supplierId: string): Promise<Supplier
 export async function upsertSupplierProduct(
   supplierId: string,
   name: string,
+  supplierCode: string | null,
+  sourcePrice: number | null,
+  sourceUnit: string | null,
   unitPrice: number | null,
   unit: string | null
 ): Promise<SupplierProduct> {
   const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, unitPrice, unit }),
+    body: JSON.stringify({ name, supplierCode, sourcePrice, sourceUnit, unitPrice, unit }),
   });
   if (!res.ok) throw new Error("Errore salvataggio prodotto fornitore");
   return res.json();
@@ -56,13 +62,16 @@ export async function upsertSupplierProduct(
 export async function updateSupplierProduct(
   supplierId: string,
   productId: string,
+  supplierCode: string | null,
+  sourcePrice: number | null,
+  sourceUnit: string | null,
   unitPrice: number | null,
   unit: string | null
 ): Promise<SupplierProduct> {
   const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ unitPrice, unit }),
+    body: JSON.stringify({ supplierCode, sourcePrice, sourceUnit, unitPrice, unit }),
   });
   if (!res.ok) throw new Error("Errore aggiornamento prodotto");
   return res.json();

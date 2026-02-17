@@ -11,6 +11,8 @@ Include una libreria fiches, gestione fornitori con listini prezzi e calcolo cos
 - Fornitori e listini prezzi (con ricerca fornitori)
 - Scheda Prodotti con elenco completo (nome, fornitore, prezzo, unita) e ricerca
 - Ricerca prodotti nel listino del singolo fornitore
+- Listino fornitore con campi estesi: codice fornitore, prezzo origine (+ unita origine), prezzo unita (+ unita)
+- Export PDF ordine fornitore stampabile (codice, nome, residuo, nuova quantita da ordinare)
 - Collegamento ingrediente ??? prodotto fornitore
 - Calcolo costo per ingrediente e food cost per porzione
 
@@ -120,7 +122,7 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/reset
 
 ## Flusso prezzi (fornitori ↔ fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.
-- Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
+- Il listino supporta anche prezzo origine e unita origine per riferimento acquisti.`r`n- Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
 - Il prezzo viene sempre letto dal listino per il calcolo del costo.
 
 ## Import listini CSV (fornitori + prodotti)
@@ -177,6 +179,12 @@ src/
 - Nuova sezione Attrezzatura nell'editor fiche.
 - Build TypeScript ripulita: errori bloccanti risolti.
 - i18n runtime con switch lingua IT/FR/EN e persistenza preferenza in localStorage.
+
+## Aggiornamenti (2026-02-17)
+- Listino fornitore esteso con codice prodotto fornitore e doppio prezzo (origine + unita operativa).
+- Aggiunta unita dedicata al prezzo origine nel listino fornitore.
+- Nuovo export PDF ordine dal dettaglio fornitore con colonne stampabili per residuo e nuova quantita da ordinare.
+- Migliorata la paginazione PDF con margini di sicurezza su tutte le pagine (ridotti tagli a fondo pagina su ordini e fiches).
 
 ## Nota operativa
 - L'app e' in uso quotidiano reale (fornitori, prodotti, decine di fiches tecniche).

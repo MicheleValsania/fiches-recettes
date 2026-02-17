@@ -42,11 +42,29 @@ await pool.query(`
     id TEXT PRIMARY KEY,
     supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    source_code TEXT,
+    source_price NUMERIC,
+    source_unit TEXT,
     unit_price NUMERIC,
     unit TEXT,
     updated_at TIMESTAMPTZ NOT NULL,
     UNIQUE (supplier_id, name)
   );
+`);
+
+await pool.query(`
+  ALTER TABLE supplier_products
+  ADD COLUMN IF NOT EXISTS source_code TEXT;
+`);
+
+await pool.query(`
+  ALTER TABLE supplier_products
+  ADD COLUMN IF NOT EXISTS source_price NUMERIC;
+`);
+
+await pool.query(`
+  ALTER TABLE supplier_products
+  ADD COLUMN IF NOT EXISTS source_unit TEXT;
 `);
 
 app.get("/api/health", async (_req, res) => {
@@ -261,6 +279,9 @@ app.get("/api/suppliers/:id/products", async (req, res) => {
     SELECT id,
            supplier_id AS "supplierId",
            name,
+           source_code AS "supplierCode",
+           source_price AS "sourcePrice",
+           source_unit AS "sourceUnit",
            unit_price AS "unitPrice",
            unit,
            updated_at AS "updatedAt"
@@ -278,6 +299,9 @@ app.post("/api/suppliers/:id/products", async (req, res) => {
   const name = String(req.body?.name || "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
 
+  const supplierCode = req.body?.supplierCode ? String(req.body.supplierCode).trim() : null;
+  const sourcePrice = req.body?.sourcePrice ?? null;
+  const sourceUnit = req.body?.sourceUnit ? String(req.body.sourceUnit).trim() : null;
   const unitPrice = req.body?.unitPrice ?? null;
   const unit = req.body?.unit ?? null;
   const now = new Date().toISOString();
@@ -285,20 +309,26 @@ app.post("/api/suppliers/:id/products", async (req, res) => {
 
   const { rows } = await pool.query(
     `
-    INSERT INTO supplier_products (id, supplier_id, name, unit_price, unit, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO supplier_products (id, supplier_id, name, source_code, source_price, source_unit, unit_price, unit, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (supplier_id, name) DO UPDATE SET
+      source_code = EXCLUDED.source_code,
+      source_price = EXCLUDED.source_price,
+      source_unit = EXCLUDED.source_unit,
       unit_price = EXCLUDED.unit_price,
       unit = EXCLUDED.unit,
       updated_at = EXCLUDED.updated_at
     RETURNING id,
               supplier_id AS "supplierId",
               name,
+              source_code AS "supplierCode",
+              source_price AS "sourcePrice",
+              source_unit AS "sourceUnit",
               unit_price AS "unitPrice",
               unit,
               updated_at AS "updatedAt";
   `,
-    [id, supplierId, name, unitPrice, unit, now]
+    [id, supplierId, name, supplierCode, sourcePrice, sourceUnit, unitPrice, unit, now]
   );
   res.json(rows[0]);
 });
@@ -306,6 +336,9 @@ app.post("/api/suppliers/:id/products", async (req, res) => {
 app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
   const supplierId = req.params.id;
   const productId = req.params.productId;
+  const supplierCode = req.body?.supplierCode ? String(req.body.supplierCode).trim() : null;
+  const sourcePrice = req.body?.sourcePrice ?? null;
+  const sourceUnit = req.body?.sourceUnit ? String(req.body.sourceUnit).trim() : null;
   const unitPrice = req.body?.unitPrice ?? null;
   const unit = req.body?.unit ?? null;
   const now = new Date().toISOString();
@@ -313,18 +346,24 @@ app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
   const { rows } = await pool.query(
     `
     UPDATE supplier_products
-    SET unit_price = $1,
-        unit = $2,
-        updated_at = $3
-    WHERE id = $4 AND supplier_id = $5
+    SET source_code = $1,
+        source_price = $2,
+        source_unit = $3,
+        unit_price = $4,
+        unit = $5,
+        updated_at = $6
+    WHERE id = $7 AND supplier_id = $8
     RETURNING id,
               supplier_id AS "supplierId",
               name,
+              source_code AS "supplierCode",
+              source_price AS "sourcePrice",
+              source_unit AS "sourceUnit",
               unit_price AS "unitPrice",
               unit,
               updated_at AS "updatedAt";
   `,
-    [unitPrice, unit, now, productId, supplierId]
+    [supplierCode, sourcePrice, sourceUnit, unitPrice, unit, now, productId, supplierId]
   );
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
   res.json(rows[0]);
@@ -359,6 +398,9 @@ app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
       RETURNING id,
                 supplier_id AS "supplierId",
                 name,
+                source_code AS "supplierCode",
+                source_price AS "sourcePrice",
+                source_unit AS "sourceUnit",
                 unit_price AS "unitPrice",
                 unit,
                 updated_at AS "updatedAt";

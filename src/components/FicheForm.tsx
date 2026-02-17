@@ -137,7 +137,7 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
     const items = await loadProducts(supplierId);
     const existing = items.find((p) => p.name.toLowerCase() === trimmed.toLowerCase());
     if (existing) return existing;
-    const created = await upsertSupplierProduct(supplierId, trimmed, unitPrice, unit);
+    const created = await upsertSupplierProduct(supplierId, trimmed, null, null, null, unitPrice, unit);
     setProductsBySupplier((prev) => ({
       ...prev,
       [supplierId]: [...(prev[supplierId] || []), created].sort((a, b) => a.name.localeCompare(b.name)),
@@ -153,7 +153,7 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
   ) => {
     const trimmed = name.trim();
     if (!trimmed) return null;
-    const created = await upsertSupplierProduct(supplierId, trimmed, unitPrice, unit);
+    const created = await upsertSupplierProduct(supplierId, trimmed, null, null, null, unitPrice, unit);
     setProductsBySupplier((prev) => ({
       ...prev,
       [supplierId]: [...(prev[supplierId] || []).filter((p) => p.id !== created.id), created].sort((a, b) =>

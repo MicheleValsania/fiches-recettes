@@ -79,6 +79,7 @@ export default function App() {
   }, [lang]);
 
   const previewRef = useRef<HTMLDivElement>(null);
+  const supplierOrderPdfRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const librarySearchRef = useRef<HTMLInputElement>(null);
   const supplierSearchRef = useRef<HTMLInputElement>(null);
@@ -96,11 +97,17 @@ export default function App() {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [supplierProductEdits, setSupplierProductEdits] = useState<
-    Record<string, { name: string; unitPrice: string; unit: string }>
+    Record<
+      string,
+      { name: string; supplierCode: string; sourcePrice: string; sourceUnit: string; unitPrice: string; unit: string }
+    >
   >({});
   const [newSupplierName, setNewSupplierName] = useState("");
   const [supplierNameEdit, setSupplierNameEdit] = useState("");
   const [newProductName, setNewProductName] = useState("");
+  const [newProductCode, setNewProductCode] = useState("");
+  const [newProductSourcePrice, setNewProductSourcePrice] = useState("");
+  const [newProductSourceUnit, setNewProductSourceUnit] = useState("");
   const [newProductPrice, setNewProductPrice] = useState("");
   const [newProductUnit, setNewProductUnit] = useState("");
   const [supplierProductQuery, setSupplierProductQuery] = useState("");
@@ -167,6 +174,24 @@ export default function App() {
   async function onExportPdfOneClick() {
     if (!previewRef.current) return;
     await exportElementToA4Pdf(previewRef.current, `${fileNameBase}.pdf`);
+  }
+
+  async function onExportSupplierOrderPdf() {
+    if (!selectedSupplier || !supplierOrderPdfRef.current) return;
+    if (supplierProducts.length === 0) {
+      setDbStatus(t(lang, "status.noSupplierProductsToExport"));
+      return;
+    }
+    try {
+      setDbBusy(true);
+      const fileBase = safeFilename(`${selectedSupplier.name || "supplier"}-lista-ordine`);
+      await exportElementToA4Pdf(supplierOrderPdfRef.current, `${fileBase}.pdf`);
+      setDbStatus(t(lang, "status.supplierOrderPdfExported", { count: supplierProducts.length }));
+    } catch {
+      setDbStatus(t(lang, "status.supplierOrderPdfExportError"));
+    } finally {
+      setDbBusy(false);
+    }
   }
 
   async function onSaveDb() {
@@ -587,6 +612,9 @@ export default function App() {
         const created = await upsertSupplierProduct(
           supplier.id,
           productNameToUse,
+          null,
+          null,
+          null,
           item.unitPrice,
           item.unit
         );
@@ -823,6 +851,9 @@ export default function App() {
               p.id,
             {
               name: p.name,
+              supplierCode: p.supplierCode ?? "",
+              sourcePrice: p.sourcePrice == null ? "" : String(p.sourcePrice),
+              sourceUnit: p.sourceUnit ?? "",
               unitPrice: p.unitPrice == null ? "" : String(p.unitPrice),
               unit: p.unit ?? "",
             },
@@ -830,6 +861,9 @@ export default function App() {
           )
         );
         setNewProductName("");
+        setNewProductCode("");
+        setNewProductSourcePrice("");
+        setNewProductSourceUnit("");
         setNewProductPrice("");
         setNewProductUnit("");
         setSupplierProductQuery("");
@@ -879,21 +913,38 @@ export default function App() {
     if (!selectedSupplier) return;
     const name = newProductName.trim();
     if (!name) return;
+    const supplierCode = newProductCode.trim() || null;
+    const sourcePrice = newProductSourcePrice === "" ? null : Number(newProductSourcePrice);
+    const sourceUnit = newProductSourceUnit || null;
     const unitPrice = newProductPrice === "" ? null : Number(newProductPrice);
     const unit = newProductUnit || null;
     try {
       setDbBusy(true);
-      const created = await upsertSupplierProduct(selectedSupplier.id, name, unitPrice, unit);
+      const created = await upsertSupplierProduct(
+        selectedSupplier.id,
+        name,
+        supplierCode,
+        sourcePrice,
+        sourceUnit,
+        unitPrice,
+        unit
+      );
       setSupplierProducts((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
       setSupplierProductEdits((prev) => ({
         ...prev,
         [created.id]: {
           name: created.name,
+          supplierCode: created.supplierCode ?? "",
+          sourcePrice: created.sourcePrice == null ? "" : String(created.sourcePrice),
+          sourceUnit: created.sourceUnit ?? "",
           unitPrice: created.unitPrice == null ? "" : String(created.unitPrice),
           unit: created.unit ?? "",
         },
       }));
       setNewProductName("");
+      setNewProductCode("");
+      setNewProductSourcePrice("");
+      setNewProductSourceUnit("");
       setNewProductPrice("");
       setNewProductUnit("");
     } catch {
@@ -903,20 +954,38 @@ export default function App() {
     }
   }
 
-  async function onUpdateSupplierProduct(productId: string, unitPrice: number | null, unit: string | null) {
+  async function onUpdateSupplierProduct(
+    productId: string,
+    supplierCode: string | null,
+    sourcePrice: number | null,
+    sourceUnit: string | null,
+    unitPrice: number | null,
+    unit: string | null
+  ) {
     if (!selectedSupplier) return;
     try {
       setDbBusy(true);
-      const updated = await updateSupplierProduct(selectedSupplier.id, productId, unitPrice, unit);
+      const updated = await updateSupplierProduct(
+        selectedSupplier.id,
+        productId,
+        supplierCode,
+        sourcePrice,
+        sourceUnit,
+        unitPrice,
+        unit
+      );
       setSupplierProducts((prev) =>
         prev
-          .map((p) => (p.id === productId ? { ...updated, name: p.name } : p))
+          .map((p) => (p.id === productId ? updated : p))
           .sort((a, b) => a.name.localeCompare(b.name))
       );
       setSupplierProductEdits((prev) => ({
         ...prev,
         [productId]: {
           name: prev[productId]?.name ?? updated.name,
+          supplierCode: updated.supplierCode ?? "",
+          sourcePrice: updated.sourcePrice == null ? "" : String(updated.sourcePrice),
+          sourceUnit: updated.sourceUnit ?? "",
           unitPrice: updated.unitPrice == null ? "" : String(updated.unitPrice),
           unit: updated.unit ?? "",
         },
@@ -933,19 +1002,26 @@ export default function App() {
   async function onSaveSupplierProduct(product: SupplierProduct) {
     const edit = supplierProductEdits[product.id];
     const nextName = (edit?.name ?? product.name).trim();
+    const nextSupplierCode = (edit?.supplierCode ?? product.supplierCode ?? "").trim() || null;
+    const nextSourcePrice =
+      edit?.sourcePrice == null || edit.sourcePrice === "" ? null : Number(edit.sourcePrice);
+    const nextSourceUnit = edit?.sourceUnit ? edit.sourceUnit : null;
     const nextUnitPrice =
       edit?.unitPrice == null || edit.unitPrice === "" ? null : Number(edit.unitPrice);
     const nextUnit = edit?.unit ? edit.unit : null;
 
     const nameChanged = nextName && nextName !== product.name;
+    const codeChanged = (product.supplierCode ?? null) !== nextSupplierCode;
+    const sourcePriceChanged = (product.sourcePrice ?? null) !== (nextSourcePrice ?? null);
+    const sourceUnitChanged = (product.sourceUnit ?? null) !== (nextSourceUnit ?? null);
     const priceChanged = (product.unitPrice ?? null) !== (nextUnitPrice ?? null);
     const unitChanged = (product.unit ?? null) !== (nextUnit ?? null);
 
     if (nameChanged) {
       await onRenameSupplierProduct(product.id, nextName);
     }
-    if (priceChanged || unitChanged) {
-      await onUpdateSupplierProduct(product.id, nextUnitPrice, nextUnit);
+    if (codeChanged || sourcePriceChanged || sourceUnitChanged || priceChanged || unitChanged) {
+      await onUpdateSupplierProduct(product.id, nextSupplierCode, nextSourcePrice, nextSourceUnit, nextUnitPrice, nextUnit);
     }
   }
 
@@ -1009,6 +1085,9 @@ export default function App() {
         ...prev,
         [productId]: {
           name: updated.name,
+          supplierCode: updated.supplierCode ?? "",
+          sourcePrice: updated.sourcePrice == null ? "" : String(updated.sourcePrice),
+          sourceUnit: updated.sourceUnit ?? "",
           unitPrice: updated.unitPrice == null ? "" : String(updated.unitPrice),
           unit: updated.unit ?? "",
         },
@@ -1022,6 +1101,9 @@ export default function App() {
         ...prev,
         [productId]: {
           name: current?.name ?? prev[productId]?.name ?? "",
+          supplierCode: prev[productId]?.supplierCode ?? "",
+          sourcePrice: prev[productId]?.sourcePrice ?? "",
+          sourceUnit: prev[productId]?.sourceUnit ?? "",
           unitPrice: prev[productId]?.unitPrice ?? "",
           unit: prev[productId]?.unit ?? "",
         },
@@ -1479,6 +1561,9 @@ export default function App() {
                   ref={supplierProductsSearchRef}
                   onChange={(e) => setSupplierProductQuery(e.target.value)}
                 />
+                <button className="btn btn-outline" onClick={onExportSupplierOrderPdf} disabled={dbBusy}>
+                  {t(lang, "app.exportSupplierOrderPdf")}
+                </button>
                 <button className="btn btn-outline" onClick={() => setView("suppliers")}>
                   {t(lang, "app.backToSuppliers")}
                 </button>
@@ -1488,10 +1573,38 @@ export default function App() {
             <div className="supplier-add">
               <input
                 className="input"
+                placeholder={t(lang, "app.supplierCodePlaceholder")}
+                value={newProductCode}
+                onChange={(e) => setNewProductCode(e.target.value)}
+              />
+              <input
+                className="input"
                 placeholder={t(lang, "app.productPlaceholder")}
                 value={newProductName}
                 onChange={(e) => setNewProductName(e.target.value)}
               />
+              <input
+                className="input input-price"
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder={t(lang, "app.originalPricePlaceholder")}
+                value={newProductSourcePrice}
+                onChange={(e) => setNewProductSourcePrice(e.target.value)}
+              />
+              <select
+                className="input input-unit"
+                value={newProductSourceUnit}
+                onChange={(e) => setNewProductSourceUnit(e.target.value)}
+              >
+                <option value="">{t(lang, "app.originalUnitLabel")}</option>
+                <option value="kg">€/kg</option>
+                <option value="g">€/g</option>
+                <option value="l">€/l</option>
+                <option value="ml">€/ml</option>
+                <option value="cl">€/cl</option>
+                <option value="pc">€/pz</option>
+              </select>
               <input
                 className="input input-price"
                 type="number"
@@ -1514,7 +1627,7 @@ export default function App() {
                 <option value="cl">€/cl</option>
                 <option value="pc">€/pz</option>
               </select>
-              <button className="btn btn-primary" onClick={onAddSupplierProduct} disabled={dbBusy}>
+              <button className="btn btn-primary supplier-add-btn" onClick={onAddSupplierProduct} disabled={dbBusy}>
                 {t(lang, "app.addProduct")}
               </button>
             </div>
@@ -1526,22 +1639,116 @@ export default function App() {
                 filteredSupplierProducts.map((product) => (
                   <div key={product.id} className="library-card supplier-product">
                     <input
-                      className="input supplier-product-name-input"
-                      value={supplierProductEdits[product.id]?.name ?? product.name}
-                      onChange={(e) =>
-                        setSupplierProductEdits((prev) => ({
-                          ...prev,
-                          [product.id]: {
-                            name: e.target.value,
-                            unitPrice: prev[product.id]?.unitPrice ?? "",
-                            unit: prev[product.id]?.unit ?? "",
-                          },
-                        }))
-                      }
-                      onBlur={(e) => onRenameSupplierProduct(product.id, e.target.value)}
-                      disabled={dbBusy}
-                    />
+                        className="input"
+                        value={supplierProductEdits[product.id]?.supplierCode ?? ""}
+                        onChange={(e) =>
+                          setSupplierProductEdits((prev) => ({
+                            ...prev,
+                            [product.id]: {
+                              name: prev[product.id]?.name ?? product.name,
+                              supplierCode: e.target.value,
+                              sourcePrice: prev[product.id]?.sourcePrice ?? "",
+                              sourceUnit: prev[product.id]?.sourceUnit ?? "",
+                              unitPrice: prev[product.id]?.unitPrice ?? "",
+                              unit: prev[product.id]?.unit ?? "",
+                            },
+                          }))
+                        }
+                        onBlur={() => {
+                          const edit = supplierProductEdits[product.id];
+                          const supplierCode = edit?.supplierCode?.trim() ? edit.supplierCode.trim() : null;
+                          const sourcePrice = edit?.sourcePrice === "" ? null : Number(edit?.sourcePrice);
+                          const sourceUnit = edit?.sourceUnit ? edit.sourceUnit : null;
+                          const price = edit?.unitPrice === "" ? null : Number(edit?.unitPrice);
+                          const unit = edit?.unit ? edit.unit : null;
+                          onUpdateSupplierProduct(product.id, supplierCode, sourcePrice, sourceUnit, price, unit);
+                        }}
+                        placeholder={t(lang, "app.supplierCodePlaceholder")}
+                      />
                     <div className="supplier-product-row">
+                      <input
+                        className="input supplier-product-name-input"
+                        value={supplierProductEdits[product.id]?.name ?? product.name}
+                        onChange={(e) =>
+                          setSupplierProductEdits((prev) => ({
+                            ...prev,
+                            [product.id]: {
+                              name: e.target.value,
+                              supplierCode: prev[product.id]?.supplierCode ?? "",
+                              sourcePrice: prev[product.id]?.sourcePrice ?? "",
+                              sourceUnit: prev[product.id]?.sourceUnit ?? "",
+                              unitPrice: prev[product.id]?.unitPrice ?? "",
+                              unit: prev[product.id]?.unit ?? "",
+                            },
+                          }))
+                        }
+                        onBlur={(e) => onRenameSupplierProduct(product.id, e.target.value)}
+                        disabled={dbBusy}
+                      />
+                      <input
+                        className="input input-price"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={supplierProductEdits[product.id]?.sourcePrice ?? ""}
+                        onChange={(e) =>
+                          setSupplierProductEdits((prev) => ({
+                            ...prev,
+                            [product.id]: {
+                              name: prev[product.id]?.name ?? product.name,
+                              supplierCode: prev[product.id]?.supplierCode ?? "",
+                              sourcePrice: e.target.value,
+                              sourceUnit: prev[product.id]?.sourceUnit ?? "",
+                              unitPrice: prev[product.id]?.unitPrice ?? "",
+                              unit: prev[product.id]?.unit ?? "",
+                            },
+                          }))
+                        }
+                        onBlur={() => {
+                          const edit = supplierProductEdits[product.id];
+                          const supplierCode = edit?.supplierCode?.trim() ? edit.supplierCode.trim() : null;
+                          const sourcePrice = edit?.sourcePrice === "" ? null : Number(edit?.sourcePrice);
+                          const sourceUnit = edit?.sourceUnit ? edit.sourceUnit : null;
+                          const price = edit?.unitPrice === "" ? null : Number(edit?.unitPrice);
+                          const unit = edit?.unit ? edit.unit : null;
+                          onUpdateSupplierProduct(product.id, supplierCode, sourcePrice, sourceUnit, price, unit);
+                        }}
+                        placeholder={t(lang, "app.originalPricePlaceholder")}
+                      />
+                      <select
+                        className="input input-unit"
+                        value={supplierProductEdits[product.id]?.sourceUnit ?? ""}
+                        onChange={(e) =>
+                          setSupplierProductEdits((prev) => ({
+                            ...prev,
+                            [product.id]: {
+                              name: prev[product.id]?.name ?? product.name,
+                              supplierCode: prev[product.id]?.supplierCode ?? "",
+                              sourcePrice: prev[product.id]?.sourcePrice ?? "",
+                              sourceUnit: e.target.value,
+                              unitPrice: prev[product.id]?.unitPrice ?? "",
+                              unit: prev[product.id]?.unit ?? "",
+                            },
+                          }))
+                        }
+                        onBlur={() => {
+                          const edit = supplierProductEdits[product.id];
+                          const supplierCode = edit?.supplierCode?.trim() ? edit.supplierCode.trim() : null;
+                          const sourcePrice = edit?.sourcePrice === "" ? null : Number(edit?.sourcePrice);
+                          const sourceUnit = edit?.sourceUnit ? edit.sourceUnit : null;
+                          const price = edit?.unitPrice === "" ? null : Number(edit?.unitPrice);
+                          const unit = edit?.unit ? edit.unit : null;
+                          onUpdateSupplierProduct(product.id, supplierCode, sourcePrice, sourceUnit, price, unit);
+                        }}
+                      >
+                        <option value="">{t(lang, "app.originalUnitLabel")}</option>
+                        <option value="kg">€/kg</option>
+                        <option value="g">€/g</option>
+                        <option value="l">€/l</option>
+                        <option value="ml">€/ml</option>
+                        <option value="cl">€/cl</option>
+                        <option value="pc">€/pz</option>
+                      </select>
                       <input
                         className="input input-price"
                         type="number"
@@ -1553,6 +1760,9 @@ export default function App() {
                             ...prev,
                             [product.id]: {
                               name: prev[product.id]?.name ?? product.name,
+                              supplierCode: prev[product.id]?.supplierCode ?? "",
+                              sourcePrice: prev[product.id]?.sourcePrice ?? "",
+                              sourceUnit: prev[product.id]?.sourceUnit ?? "",
                               unitPrice: e.target.value,
                               unit: prev[product.id]?.unit ?? "",
                             },
@@ -1560,9 +1770,12 @@ export default function App() {
                         }
                         onBlur={() => {
                           const edit = supplierProductEdits[product.id];
+                          const supplierCode = edit?.supplierCode?.trim() ? edit.supplierCode.trim() : null;
+                          const sourcePrice = edit?.sourcePrice === "" ? null : Number(edit?.sourcePrice);
+                          const sourceUnit = edit?.sourceUnit ? edit.sourceUnit : null;
                           const price = edit?.unitPrice === "" ? null : Number(edit?.unitPrice);
                           const unit = edit?.unit ? edit.unit : null;
-                          onUpdateSupplierProduct(product.id, price, unit);
+                          onUpdateSupplierProduct(product.id, supplierCode, sourcePrice, sourceUnit, price, unit);
                         }}
                         placeholder={t(lang, "app.pricePlaceholder")}
                       />
@@ -1574,6 +1787,9 @@ export default function App() {
                             ...prev,
                             [product.id]: {
                               name: prev[product.id]?.name ?? product.name,
+                              supplierCode: prev[product.id]?.supplierCode ?? "",
+                              sourcePrice: prev[product.id]?.sourcePrice ?? "",
+                              sourceUnit: prev[product.id]?.sourceUnit ?? "",
                               unitPrice: prev[product.id]?.unitPrice ?? "",
                               unit: e.target.value,
                             },
@@ -1581,9 +1797,12 @@ export default function App() {
                         }
                         onBlur={() => {
                           const edit = supplierProductEdits[product.id];
+                          const supplierCode = edit?.supplierCode?.trim() ? edit.supplierCode.trim() : null;
+                          const sourcePrice = edit?.sourcePrice === "" ? null : Number(edit?.sourcePrice);
+                          const sourceUnit = edit?.sourceUnit ? edit.sourceUnit : null;
                           const price = edit?.unitPrice === "" ? null : Number(edit?.unitPrice);
                           const unit = edit?.unit ? edit.unit : null;
-                          onUpdateSupplierProduct(product.id, price, unit);
+                          onUpdateSupplierProduct(product.id, supplierCode, sourcePrice, sourceUnit, price, unit);
                         }}
                       >
                         <option value="">{t(lang, "app.unitLabel")}</option>
@@ -1612,6 +1831,33 @@ export default function App() {
                   </div>
                 ))
               )}
+            </div>
+
+            <div ref={supplierOrderPdfRef} className="supplier-order-pdf-sheet" aria-hidden>
+              <div className="supplier-order-pdf-title">{t(lang, "app.supplierOrderPdfTitle")}</div>
+              <div className="supplier-order-pdf-meta">
+                {selectedSupplier?.name || "-"} - {new Date().toLocaleDateString(locale)}
+              </div>
+              <table className="supplier-order-pdf-table">
+                <thead>
+                  <tr>
+                    <th>{t(lang, "app.supplierOrderPdfColCode")}</th>
+                    <th>{t(lang, "app.supplierOrderPdfColName")}</th>
+                    <th>{t(lang, "app.supplierOrderPdfColResidual")}</th>
+                    <th>{t(lang, "app.supplierOrderPdfColToOrder")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {supplierProducts.map((product) => (
+                    <tr key={product.id}>
+                      <td>{product.supplierCode || ""}</td>
+                      <td>{product.name}</td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         )}

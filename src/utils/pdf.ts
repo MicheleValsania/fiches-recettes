@@ -8,26 +8,42 @@ export async function renderElementToA4PdfBlob(element: HTMLElement): Promise<Bl
     backgroundColor: "#ffffff",
   });
 
-  const imgData = canvas.toDataURL("image/png");
   const pdf = new jsPDF("p", "mm", "a4");
   const pageWidth = 210;
   const pageHeight = 297;
+  const margin = 10;
+  const contentWidth = pageWidth - margin * 2;
+  const contentHeight = pageHeight - margin * 2;
+  const pageSourceHeight = (contentHeight * canvas.width) / contentWidth;
+  let sourceY = 0;
+  let isFirstPage = true;
+  while (sourceY < canvas.height) {
+    const remaining = canvas.height - sourceY;
+    const sourceHeight = Math.min(pageSourceHeight, remaining);
+    const renderHeight = (sourceHeight * contentWidth) / canvas.width;
+    const sliceCanvas = document.createElement("canvas");
+    sliceCanvas.width = canvas.width;
+    sliceCanvas.height = Math.ceil(sourceHeight);
+    const ctx = sliceCanvas.getContext("2d");
+    if (!ctx) throw new Error("Cannot create PDF canvas context");
+    ctx.drawImage(
+      canvas,
+      0,
+      sourceY,
+      canvas.width,
+      sourceHeight,
+      0,
+      0,
+      canvas.width,
+      sourceHeight
+    );
+    const sliceData = sliceCanvas.toDataURL("image/png");
 
-  const imgProps = pdf.getImageProperties(imgData);
-  const imgWidth = pageWidth;
-  const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+    if (!isFirstPage) pdf.addPage();
+    pdf.addImage(sliceData, "PNG", margin, margin, contentWidth, renderHeight, undefined, "FAST");
 
-  let position = 0;
-  let heightLeft = imgHeight;
-
-  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
-
-  while (heightLeft > 0) {
-    pdf.addPage();
-    position = heightLeft - imgHeight;
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    sourceY += sourceHeight;
+    isFirstPage = false;
   }
 
   return pdf.output("blob") as Blob;
