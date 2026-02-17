@@ -173,7 +173,7 @@ const messages = {
     "app.importJson": "Importer JSON",
     "app.print": "Imprimer",
     "app.exportPdf": "Exporter PDF",
-    "app.saveDb": "Enregistrer en base",
+    "app.saveDb": "Enregistrer",
     "app.mode": "Mode",
     "app.mode.library": "Bibliotheque fiches",
     "app.mode.suppliers": "Fournisseurs",

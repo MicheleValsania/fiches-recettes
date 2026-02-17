@@ -1167,6 +1167,18 @@ export default function App() {
 
           {view === "editor" ? (
             <div className="fiche-actions">
+              <button className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>
+                {t(lang, "app.saveDb")}
+              </button>
+
+              <button className="btn btn-outline btn-fiche" onClick={() => window.print()}>
+                {t(lang, "app.print")}
+              </button>
+
+              <button className="btn btn-outline btn-fiche" onClick={onExportPdfOneClick}>
+                {t(lang, "app.exportPdf")}
+              </button>
+
               <button className="btn btn-outline btn-fiche" onClick={() => downloadJson(fiche, `${fileNameBase}.json`)}>
                 {t(lang, "app.exportJson")}
               </button>
@@ -1183,18 +1195,6 @@ export default function App() {
                 />
                 {t(lang, "app.importJson")}
               </label>
-
-              <button className="btn btn-outline btn-fiche" onClick={() => window.print()}>
-                {t(lang, "app.print")}
-              </button>
-
-              <button className="btn btn-outline btn-fiche" onClick={onExportPdfOneClick}>
-                {t(lang, "app.exportPdf")}
-              </button>
-
-              <button className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>
-                {t(lang, "app.saveDb")}
-              </button>
             </div>
 
           ) : null}

@@ -193,8 +193,20 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
             className="input"
             type="number"
             min={1}
-            value={fiche.portions}
-            onChange={(e) => set({ portions: Number(e.target.value || 1) })}
+            value={fiche.portions > 0 ? fiche.portions : ""}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (next === "") {
+                set({ portions: 0 });
+                return;
+              }
+              set({ portions: Math.max(1, Number(next) || 1) });
+            }}
+            onBlur={() => {
+              if (!fiche.portions || fiche.portions < 1) {
+                set({ portions: 1 });
+              }
+            }}
           />
         </label>
       </div>
