@@ -13,7 +13,7 @@ Include una libreria fiches, gestione fornitori con listini prezzi e calcolo cos
 - Ricerca prodotti nel listino del singolo fornitore
 - Listino fornitore con campi estesi: codice fornitore, prezzo origine (+ unita origine), prezzo unita (+ unita)
 - Export PDF ordine fornitore stampabile (codice, nome, residuo, nuova quantita da ordinare)
-- Collegamento ingrediente ??? prodotto fornitore
+- Collegamento ingrediente-prodotto fornitore
 - Calcolo costo per ingrediente e food cost per porzione
 
 ## Ricerca
@@ -122,7 +122,8 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/reset
 
 ## Flusso prezzi (fornitori ↔ fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.
-- Il listino supporta anche prezzo origine e unita origine per riferimento acquisti.`r`n- Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
+- Il listino supporta anche prezzo origine e unita origine per riferimento acquisti.
+- Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
 - Il prezzo viene sempre letto dal listino per il calcolo del costo.
 
 ## Import listini CSV (fornitori + prodotti)
