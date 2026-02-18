@@ -8,7 +8,7 @@ import FicheForm from "./components/FicheForm";
 import FichePreview from "./components/FichePreview";
 import { getInitialLang, LANG_STORAGE_KEY, localeByLang, t, type Lang } from "./i18n";
 import { downloadBlob, downloadJson, readJsonFile, safeFilename } from "./utils/exporters";
-import { exportElementToA4Pdf, renderElementToA4PdfBlob } from "./utils/pdf";
+import { exportElementToA4Pdf, exportSupplierOrderListPdf, renderElementToA4PdfBlob } from "./utils/pdf";
 import { createZipBlob } from "./utils/zip";
 import {
   deleteFicheFromDb,
@@ -79,7 +79,6 @@ export default function App() {
   }, [lang]);
 
   const previewRef = useRef<HTMLDivElement>(null);
-  const supplierOrderPdfRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const librarySearchRef = useRef<HTMLInputElement>(null);
   const supplierSearchRef = useRef<HTMLInputElement>(null);
@@ -177,7 +176,7 @@ export default function App() {
   }
 
   async function onExportSupplierOrderPdf() {
-    if (!selectedSupplier || !supplierOrderPdfRef.current) return;
+    if (!selectedSupplier) return;
     if (supplierProducts.length === 0) {
       setDbStatus(t(lang, "status.noSupplierProductsToExport"));
       return;
@@ -185,7 +184,23 @@ export default function App() {
     try {
       setDbBusy(true);
       const fileBase = safeFilename(`${selectedSupplier.name || "supplier"}-lista-ordine`);
-      await exportElementToA4Pdf(supplierOrderPdfRef.current, `${fileBase}.pdf`);
+      const labels = {
+        title: t(lang, "app.supplierOrderPdfTitle"),
+        code: t(lang, "app.supplierOrderPdfColCode"),
+        name: t(lang, "app.supplierOrderPdfColName"),
+        residual: t(lang, "app.supplierOrderPdfColResidual"),
+        toOrder: t(lang, "app.supplierOrderPdfColToOrder"),
+      };
+      const meta = `${selectedSupplier.name || "-"} - ${new Date().toLocaleDateString(locale)}`;
+      await exportSupplierOrderListPdf(
+        supplierProducts.map((product) => ({
+          code: product.supplierCode || "",
+          name: product.name || "",
+        })),
+        labels,
+        meta,
+        `${fileBase}.pdf`
+      );
       setDbStatus(t(lang, "status.supplierOrderPdfExported", { count: supplierProducts.length }));
     } catch {
       setDbStatus(t(lang, "status.supplierOrderPdfExportError"));
@@ -1833,32 +1848,6 @@ export default function App() {
               )}
             </div>
 
-            <div ref={supplierOrderPdfRef} className="supplier-order-pdf-sheet" aria-hidden>
-              <div className="supplier-order-pdf-title">{t(lang, "app.supplierOrderPdfTitle")}</div>
-              <div className="supplier-order-pdf-meta">
-                {selectedSupplier?.name || "-"} - {new Date().toLocaleDateString(locale)}
-              </div>
-              <table className="supplier-order-pdf-table">
-                <thead>
-                  <tr>
-                    <th>{t(lang, "app.supplierOrderPdfColCode")}</th>
-                    <th>{t(lang, "app.supplierOrderPdfColName")}</th>
-                    <th>{t(lang, "app.supplierOrderPdfColResidual")}</th>
-                    <th>{t(lang, "app.supplierOrderPdfColToOrder")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {supplierProducts.map((product) => (
-                    <tr key={product.id}>
-                      <td>{product.supplierCode || ""}</td>
-                      <td>{product.name}</td>
-                      <td></td>
-                      <td></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </section>
         )}
       </main>
