@@ -20,6 +20,7 @@ export async function loadFicheFromDb(id: string): Promise<FicheTechnique> {
 export type FicheListItem = {
   id: string;
   title: string;
+  category?: string;
   createdAt: string;
   updatedAt: string;
 };

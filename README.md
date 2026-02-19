@@ -128,11 +128,46 @@ Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/reset
 
 ## Import listini CSV (fornitori + prodotti)
 Nella sezione **Fornitori** usa il bottone **Importa CSV** per caricare uno o piÃ¹ file CSV.
-Colonne richieste: `FOURNISSEUR`, `DESIGNATION`, `UNITE`, `PRIX UNIT HT`.
+Colonne minime richieste: `FOURNISSEUR`, `DESIGNATION`.
+Colonne supportate (opzionali): `CODE FOURNISSEUR`, `PRIX ORIGINE`, `UNITE ORIGINE`, `UNITE`, `PRIX UNIT HT`.
+- Le celle vuote nel CSV non cancellano i dati esistenti in listino (merge non distruttivo).
 - I duplicati dello stesso fornitore vengono sovrascritti con l'ultimo caricato.
 - Prodotti uguali con fornitori diversi vengono mantenuti.
 - Case-insensitive automatico (es. `ATS` -> `ats`).
 - Per somiglianze (es. `tropézienne` vs `les halles tropezienne`) viene chiesta conferma e puoi applicare la scelta a tutto l'import.
+
+## Workflow pratico: IA -> CSV -> fiches tecniche
+Questa prassi e' utile se costruisci o rivedi ricette in ChatGPT/Claude e vuoi importare rapidamente i prodotti nel listino.
+
+1. Raccogli in IA ingredienti, fornitore e codici prodotto.
+2. Chiedi all'IA un CSV con intestazioni esatte:
+   `FOURNISSEUR,DESIGNATION,CODE FOURNISSEUR,PRIX ORIGINE,UNITE ORIGINE,UNITE,PRIX UNIT HT`
+3. Importa il CSV in **Fornitori**.
+4. Apri il dettaglio fornitore e fai solo le rifiniture necessarie (nomi, unita, prezzi, codici).
+5. Compila/aggiorna la fiche: il food cost usera' sempre `PRIX UNIT HT` + `UNITE` (prezzo operativo).
+
+Note operative:
+- Se aggiorni solo il listino origine, puoi valorizzare `PRIX ORIGINE` e lasciare vuoto `PRIX UNIT HT`.
+- Le celle vuote non cancellano i valori gia' presenti.
+- Se vuoi bloccare il costo operativo corrente, evita di inviare `PRIX UNIT HT` per quei prodotti.
+
+Prompt suggerito per IA:
+```text
+Genera un CSV valido con separatore virgola e una riga header.
+Usa esattamente queste colonne:
+FOURNISSEUR,DESIGNATION,CODE FOURNISSEUR,PRIX ORIGINE,UNITE ORIGINE,UNITE,PRIX UNIT HT
+Regole:
+- Nessun testo extra prima o dopo il CSV.
+- Usa il punto come separatore decimale.
+- Lascia vuoto il campo se il dato non e' disponibile.
+- Non inventare codici prodotto.
+```
+
+Alternative utili:
+- Modalita "solo anagrafica": importa solo `FOURNISSEUR` + `DESIGNATION` (+ opzionale `CODE FOURNISSEUR`), poi completi i prezzi in app.
+- Modalita "solo aggiornamento prezzi": esporti dal tuo processo IA solo righe con prodotti esistenti e prezzi da aggiornare.
+- Modalita "batch per fornitore": un CSV per fornitore riduce conflitti e rende piu' semplice il controllo finale.
+- Per preparare nuove fiches con IA: crea una fiche vuota in app, fai `Export JSON` e usa quel file come modello da far completare all'IA.
 
 ## Modifica fornitori/prodotti
 - Puoi rinominare il fornitore dal dettaglio listino.

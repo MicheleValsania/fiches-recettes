@@ -1,8 +1,11 @@
 export type SupplierCsvItem = {
   supplier: string;
   product: string;
-  unit: string | null;
-  unitPrice: number | null;
+  supplierCode?: string;
+  sourcePrice?: number;
+  sourceUnit?: string;
+  unit?: string;
+  unitPrice?: number;
 };
 
 function normalizeText(value: string) {
@@ -148,41 +151,99 @@ function findHeaderIndexes(row: string[]) {
   const indexes: {
     supplier?: number;
     product?: number;
+    supplierCode?: number;
+    sourcePrice?: number;
+    sourceUnit?: number;
     unit?: number;
-    price?: number;
+    unitPrice?: number;
   } = {};
 
   row.forEach((cell, idx) => {
     const normalized = normalizeText(cell);
     if (!normalized) return;
 
-    if (normalized.includes("fournisseur")) indexes.supplier = idx;
-    if (normalized.includes("designation")) indexes.product = idx;
-    if (normalized.includes("unite") || normalized === "unit") indexes.unit = idx;
-    if (normalized.includes("prix unit")) indexes.price = idx;
+    const hasSupplierWord =
+      normalized.includes("fournisseur") ||
+      normalized.includes("fornitore") ||
+      normalized.includes("supplier");
+    const hasProductWord =
+      normalized.includes("designation") ||
+      normalized.includes("produit") ||
+      normalized.includes("prodotto") ||
+      normalized.includes("product") ||
+      normalized.includes("linea prodotto") ||
+      normalized.includes("ligne produit");
+    const hasCodeWord =
+      normalized.includes("code fournisseur") ||
+      normalized.includes("codice fornitore") ||
+      normalized.includes("supplier code") ||
+      normalized.includes("source code");
+    const hasSourceWord = normalized.includes("source") || normalized.includes("origine");
+    const hasPriceWord =
+      normalized.includes("prix") ||
+      normalized.includes("prezzo") ||
+      normalized.includes("price");
+    const hasUnitWord =
+      normalized.includes("unite") ||
+      normalized.includes("unita") ||
+      normalized === "unit";
+
+    if (hasCodeWord) {
+      indexes.supplierCode = idx;
+      return;
+    }
+    if (hasSupplierWord) {
+      indexes.supplier = idx;
+      return;
+    }
+    if (hasProductWord) {
+      indexes.product = idx;
+      return;
+    }
+    if (hasPriceWord && hasSourceWord) {
+      indexes.sourcePrice = idx;
+      return;
+    }
+    if (hasUnitWord && hasSourceWord) {
+      indexes.sourceUnit = idx;
+      return;
+    }
+    if (hasPriceWord) {
+      indexes.unitPrice = idx;
+      return;
+    }
+    if (hasUnitWord) {
+      indexes.unit = idx;
+    }
   });
 
-  if (
-    indexes.supplier == null ||
-    indexes.product == null ||
-    indexes.unit == null ||
-    indexes.price == null
-  ) {
+  if (indexes.supplier == null || indexes.product == null) {
     return null;
   }
 
   return indexes as {
     supplier: number;
     product: number;
-    unit: number;
-    price: number;
+    supplierCode?: number;
+    sourcePrice?: number;
+    sourceUnit?: number;
+    unit?: number;
+    unitPrice?: number;
   };
 }
 
 export function parseSupplierCsv(text: string): SupplierCsvItem[] {
   const rows = parseCsv(text);
   const items: SupplierCsvItem[] = [];
-  let header: { supplier: number; product: number; unit: number; price: number } | null = null;
+  let header: {
+    supplier: number;
+    product: number;
+    supplierCode?: number;
+    sourcePrice?: number;
+    sourceUnit?: number;
+    unit?: number;
+    unitPrice?: number;
+  } | null = null;
 
   for (const row of rows) {
     if (!row.length) continue;
@@ -215,12 +276,25 @@ export function parseSupplierCsv(text: string): SupplierCsvItem[] {
       continue;
     }
 
-    const unit = normalizeUnit(row[header.unit] ?? "");
-    const unitPrice = parsePrice(row[header.price] ?? "");
+    const supplierCodeRaw = header.supplierCode == null ? "" : row[header.supplierCode] ?? "";
+    const supplierCode = supplierCodeRaw.trim() || undefined;
+    const sourcePriceRaw = header.sourcePrice == null ? "" : row[header.sourcePrice] ?? "";
+    const parsedSourcePrice = parsePrice(sourcePriceRaw);
+    const sourcePrice = parsedSourcePrice == null ? undefined : parsedSourcePrice;
+    const sourceUnitRaw = header.sourceUnit == null ? "" : row[header.sourceUnit] ?? "";
+    const sourceUnit = normalizeUnit(sourceUnitRaw) ?? undefined;
+    const unitRaw = header.unit == null ? "" : row[header.unit] ?? "";
+    const unit = normalizeUnit(unitRaw) ?? undefined;
+    const unitPriceRaw = header.unitPrice == null ? "" : row[header.unitPrice] ?? "";
+    const parsedUnitPrice = parsePrice(unitPriceRaw);
+    const unitPrice = parsedUnitPrice == null ? undefined : parsedUnitPrice;
 
     items.push({
       supplier,
       product,
+      supplierCode,
+      sourcePrice,
+      sourceUnit,
       unit,
       unitPrice,
     });

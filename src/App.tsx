@@ -91,6 +91,7 @@ export default function App() {
   const [view, setView] = useState<"editor" | "library" | "suppliers" | "supplierDetail" | "products">("editor");
   const [library, setLibrary] = useState<FicheListItem[]>([]);
   const [libraryQuery, setLibraryQuery] = useState("");
+  const [libraryCategoryQuery, setLibraryCategoryQuery] = useState("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierQuery, setSupplierQuery] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
@@ -480,7 +481,20 @@ export default function App() {
       const deduped = new Map<string, SupplierCsvItem>();
       for (const item of allItems) {
         const key = `${normalize(item.supplier)}::${normalize(item.product)}`;
-        deduped.set(key, item);
+        const previous = deduped.get(key);
+        if (!previous) {
+          deduped.set(key, item);
+          continue;
+        }
+        deduped.set(key, {
+          supplier: previous.supplier,
+          product: previous.product,
+          supplierCode: item.supplierCode ?? previous.supplierCode,
+          sourcePrice: item.sourcePrice ?? previous.sourcePrice,
+          sourceUnit: item.sourceUnit ?? previous.sourceUnit,
+          unitPrice: item.unitPrice ?? previous.unitPrice,
+          unit: item.unit ?? previous.unit,
+        });
       }
       const uniqueItems = Array.from(deduped.values());
 
@@ -624,14 +638,27 @@ export default function App() {
           }
         }
 
+        const existingByName = existingProducts.find(
+          (p) => normalize(p.name) === normalize(productNameToUse)
+        );
+        const supplierCode = item.supplierCode ?? existingByName?.supplierCode ?? null;
+        const sourcePrice = item.sourcePrice ?? (existingByName?.sourcePrice == null
+          ? null
+          : Number(existingByName.sourcePrice));
+        const sourceUnit = item.sourceUnit ?? existingByName?.sourceUnit ?? null;
+        const unitPrice = item.unitPrice ?? (existingByName?.unitPrice == null
+          ? null
+          : Number(existingByName.unitPrice));
+        const unit = item.unit ?? existingByName?.unit ?? null;
+
         const created = await upsertSupplierProduct(
           supplier.id,
           productNameToUse,
-          null,
-          null,
-          null,
-          item.unitPrice,
-          item.unit
+          supplierCode,
+          sourcePrice,
+          sourceUnit,
+          unitPrice,
+          unit
         );
         if (created && productsCache.has(supplier.id)) {
           const list = productsCache.get(supplier.id) || [];
@@ -1129,10 +1156,15 @@ export default function App() {
   }
 
   const filteredLibrary = useMemo(() => {
-    const q = libraryQuery.trim().toLowerCase();
-    if (!q) return library;
-    return library.filter((item) => item.title?.toLowerCase().includes(q));
-  }, [library, libraryQuery]);
+    const titleQuery = libraryQuery.trim().toLowerCase();
+    const categoryQuery = libraryCategoryQuery.trim().toLowerCase();
+    if (!titleQuery && !categoryQuery) return library;
+    return library.filter((item) => {
+      const titleMatch = !titleQuery || item.title?.toLowerCase().includes(titleQuery);
+      const categoryMatch = !categoryQuery || item.category?.toLowerCase().includes(categoryQuery);
+      return titleMatch && categoryMatch;
+    });
+  }, [library, libraryQuery, libraryCategoryQuery]);
 
   const libraryTitleOptions = useMemo(() => {
     const titles = new Set<string>();
@@ -1141,6 +1173,15 @@ export default function App() {
       if (title) titles.add(title);
     }
     return Array.from(titles).sort((a, b) => a.localeCompare(b));
+  }, [library]);
+
+  const libraryCategoryOptions = useMemo(() => {
+    const categories = new Set<string>();
+    for (const item of library) {
+      const category = item.category?.trim();
+      if (category) categories.add(category);
+    }
+    return Array.from(categories).sort((a, b) => a.localeCompare(b));
   }, [library]);
 
   const filteredSuppliers = useMemo(() => {
@@ -1355,6 +1396,18 @@ export default function App() {
                     <option key={title} value={title} />
                   ))}
                 </datalist>
+                <input
+                  className="input"
+                  placeholder={t(lang, "app.searchCategory")}
+                  list="library-categories"
+                  value={libraryCategoryQuery}
+                  onChange={(e) => setLibraryCategoryQuery(e.target.value)}
+                />
+                <datalist id="library-categories">
+                  {libraryCategoryOptions.map((category) => (
+                    <option key={category} value={category} />
+                  ))}
+                </datalist>
                 <button className="btn btn-outline" onClick={onExportAllFiches} disabled={dbBusy}>
                   {t(lang, "app.exportAllJson")}
                 </button>
@@ -1389,6 +1442,7 @@ export default function App() {
                     >
                       <div className="library-title">{item.title || t(lang, "app.untitled")}</div>
                       <div className="library-meta">
+                        {item.category?.trim() ? `${item.category} | ` : ""}
                         {t(lang, "app.updatedAt", { value: new Date(item.updatedAt).toLocaleString(locale) })}
                       </div>
                     </button>

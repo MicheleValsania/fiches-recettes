@@ -78,7 +78,7 @@ app.get("/api/health", async (_req, res) => {
 
 app.get("/api/fiches", async (_req, res) => {
   const { rows } = await pool.query(
-    "SELECT id, title, created_at AS \"createdAt\", updated_at AS \"updatedAt\" FROM fiches ORDER BY updated_at DESC"
+    "SELECT id, title, data->>'category' AS category, created_at AS \"createdAt\", updated_at AS \"updatedAt\" FROM fiches ORDER BY updated_at DESC"
   );
   res.json(rows);
 });
