@@ -50,6 +50,7 @@ function newFiche(): FicheTechnique {
     equipment: [],
     ingredients: [{ name: "", qty: "", note: "" }],
     steps: [""],
+    haccpProfiles: [],
     notes: "",
     createdAt: now,
     updatedAt: now,
@@ -1224,6 +1225,8 @@ export default function App() {
     if (data.title.trim() || data.category?.trim() || data.notes?.trim()) return true;
     if (data.ingredients.some((ing) => ing.name.trim() || ing.qty.trim() || ing.note?.trim())) return true;
     if (data.steps.some((step) => step.trim())) return true;
+    if (data.haccpProfiles?.some((p) => p.process || p.packaging || p.notes || p.shelfLifeValue || p.tempMaxC || p.tempMinC))
+      return true;
     if (data.allergens.some((al) => al.trim())) return true;
     if (data.equipment.some((eq) => eq.trim())) return true;
     return false;

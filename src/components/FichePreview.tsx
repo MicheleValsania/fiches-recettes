@@ -32,6 +32,16 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
 
   const locale = localeByLang[lang];
   const emptyMark = "-";
+  const haccpProcessLabel: Record<NonNullable<FicheTechnique["haccpProfiles"]>[number]["process"], string> = {
+    COOK_CHILL: t(lang, "form.haccpProcess.COOK_CHILL"),
+    MARINATION: t(lang, "form.haccpProcess.MARINATION"),
+    VACUUM_PASTEURIZATION: t(lang, "form.haccpProcess.VACUUM_PASTEURIZATION"),
+    SOUS_VIDE_COOK: t(lang, "form.haccpProcess.SOUS_VIDE_COOK"),
+    FREEZING: t(lang, "form.haccpProcess.FREEZING"),
+    THAWING: t(lang, "form.haccpProcess.THAWING"),
+    HOT_HOLDING: t(lang, "form.haccpProcess.HOT_HOLDING"),
+    OTHER: t(lang, "form.haccpProcess.OTHER"),
+  };
 
   return (
     <div className="sheet">
@@ -126,6 +136,29 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
             </li>
           ))}
         </ol>
+      )}
+
+      {(fiche.haccpProfiles?.length ?? 0) > 0 && (
+        <>
+          <hr />
+          <h2 className="preview-section">{t(lang, "preview.haccpProfiles")}</h2>
+          <ul className="preview-list">
+            {(fiche.haccpProfiles ?? []).map((profile, idx) => (
+              <li key={idx}>
+                <strong>{haccpProcessLabel[profile.process]}</strong>
+                {" | "}
+                {profile.packaging || emptyMark}
+                {" | "}
+                {profile.tempMinC || emptyMark} C / {profile.tempMaxC || emptyMark} C
+                {" | "}
+                {profile.shelfLifeValue || emptyMark} {profile.shelfLifeUnit || ""}
+                {" | "}
+                {profile.dlcType || emptyMark}
+                {profile.notes?.trim() ? ` | ${profile.notes}` : ""}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
 
       {(fiche.equipment.length > 0 || fiche.allergens.length > 0) && (
