@@ -53,6 +53,39 @@ await pool.query(`
 `);
 
 await pool.query(`
+  CREATE TABLE IF NOT EXISTS categories (
+    id TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    point_vente TEXT NOT NULL DEFAULT 'commun',
+    sort_order INTEGER NOT NULL DEFAULT 0
+  );
+`);
+
+await pool.query(`
+  INSERT INTO categories (id, display_name, point_vente, sort_order) VALUES
+    ('base', 'Base', 'commun', 1),
+    ('base_dessert', 'Base dessert', 'commun', 2),
+    ('sauce', 'Sauce', 'commun', 3),
+    ('entree', 'Entree', 'ristorante', 10),
+    ('plat_pates', 'Pates & Risotto', 'ristorante', 11),
+    ('plat_poisson', 'Poisson', 'ristorante', 12),
+    ('plat_viande', 'Viande', 'ristorante', 13),
+    ('plat_vegetarien', 'Vegetarien', 'ristorante', 14),
+    ('pizza', 'Pizza', 'ristorante', 15),
+    ('dessert', 'Dessert', 'ristorante', 16),
+    ('accompagnement', 'Accompagnement', 'ristorante', 17),
+    ('snack_sandwich_froid', 'Sandwich froid', 'snack_bar', 20),
+    ('snack_sandwich_chaud', 'Sandwich chaud', 'snack_bar', 21),
+    ('snack_wrap_tacos', 'Wrap & Tacos', 'snack_bar', 22),
+    ('snack_burger', 'Burger', 'snack_bar', 23),
+    ('snack_assiette', 'Assiette', 'snack_bar', 24),
+    ('snack_salade_bowl', 'Salade & Bowl', 'snack_bar', 25),
+    ('snack_dessert', 'Dessert snack', 'snack_bar', 26),
+    ('snack_petit_dejeuner', 'Petit dejeuner', 'snack_bar', 27)
+  ON CONFLICT (id) DO NOTHING;
+`);
+
+await pool.query(`
   ALTER TABLE supplier_products
   ADD COLUMN IF NOT EXISTS source_code TEXT;
 `);
@@ -90,6 +123,20 @@ app.get("/api/fiches/:id", async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
   res.json(rows[0].data);
+});
+
+app.get("/api/categories", async (_req, res) => {
+  const { rows } = await pool.query(
+    `
+    SELECT id,
+           display_name AS "displayName",
+           point_vente AS "pointVente",
+           sort_order AS "sortOrder"
+    FROM categories
+    ORDER BY sort_order ASC, display_name ASC
+  `
+  );
+  res.json(rows);
 });
 
 app.post("/api/fiches", async (req, res) => {
@@ -177,13 +224,18 @@ app.put("/api/suppliers/:id", async (req, res) => {
               WHEN ing->>'supplierId' = $1 THEN
                 ing || jsonb_build_object('supplier', $2::text)
               WHEN (ing->>'supplierId') IS NULL AND lower(coalesce(ing->>'supplier','')) = lower($3::text) THEN
-                ing || jsonb_build_object('supplier', $2::text, 'supplierId', $1)
+                ing || jsonb_build_object('supplier', $2::text, 'supplierId', $1::text)
               ELSE ing
             END
             ),
             '[]'::jsonb
           )
-          FROM jsonb_array_elements(data->'ingredients') ing
+          FROM jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(data->'ingredients') = 'array' THEN data->'ingredients'
+              ELSE '[]'::jsonb
+            END
+          ) ing
         )
       ),
       updated_at = now()
@@ -253,7 +305,12 @@ app.delete("/api/suppliers/:id", async (req, res) => {
             ),
             '[]'::jsonb
           )
-          FROM jsonb_array_elements(COALESCE(data->'ingredients','[]'::jsonb)) ing
+          FROM jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(data->'ingredients') = 'array' THEN data->'ingredients'
+              ELSE '[]'::jsonb
+            END
+          ) ing
         )
       ),
       updated_at = now()
@@ -419,15 +476,20 @@ app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
             jsonb_agg(
             CASE
               WHEN ing->>'supplierProductId' = $1 THEN
-                ing || jsonb_build_object('name', $2::text, 'supplierId', $3)
-              WHEN ing->>'supplierId' = $3 AND lower(coalesce(ing->>'name','')) = lower($4::text) THEN
+                ing || jsonb_build_object('name', $2::text, 'supplierId', $3::text)
+              WHEN ing->>'supplierId' = $3::text AND lower(coalesce(ing->>'name','')) = lower($4::text) THEN
                 ing || jsonb_build_object('name', $2::text)
               ELSE ing
             END
             ),
             '[]'::jsonb
           )
-          FROM jsonb_array_elements(data->'ingredients') ing
+          FROM jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(data->'ingredients') = 'array' THEN data->'ingredients'
+              ELSE '[]'::jsonb
+            END
+          ) ing
         )
       ),
       updated_at = now()

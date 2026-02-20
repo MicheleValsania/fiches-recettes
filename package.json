@@ -9,6 +9,8 @@
     "dev:all": "concurrently -k \"npm:dev\" \"npm:dev:server\"",
     "dev:full": "powershell -ExecutionPolicy Bypass -File scripts/dev.ps1",
     "backup:db": "powershell -ExecutionPolicy Bypass -File scripts/backup.ps1",
+    "categories:assign:dry": "node scripts/assign-categories.mjs",
+    "categories:assign": "node scripts/assign-categories.mjs --apply",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

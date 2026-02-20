@@ -1751,7 +1751,6 @@ export default function App() {
                             },
                           }))
                         }
-                        onBlur={(e) => onRenameSupplierProduct(product.id, e.target.value)}
                         disabled={dbBusy}
                       />
                       <input

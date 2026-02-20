@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FicheTechnique, IngredientLine } from "../types/fiche";
 import { computeIngredientCost, formatCurrency } from "../utils/costing";
 import { t, type Lang } from "../i18n";
+import { listCategories, type CategoryListItem } from "../utils/db";
 import {
   listSupplierProducts,
   listSuppliers,
@@ -31,6 +32,8 @@ function updateIngredient(
 
 export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient, onPriceIndexRefresh }: Props) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [categories, setCategories] = useState<CategoryListItem[]>([]);
+  const [categorySelectEnabled, setCategorySelectEnabled] = useState(false);
   const [productsBySupplier, setProductsBySupplier] = useState<Record<string, SupplierProduct[]>>({});
   const [priceDrafts, setPriceDrafts] = useState<Record<string, { unitPrice: string; unit: string }>>({});
 
@@ -48,6 +51,29 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    listCategories()
+      .then((items) => {
+        if (!active) return;
+        if (items.length > 0) {
+          setCategories(items);
+          setCategorySelectEnabled(true);
+          return;
+        }
+        setCategories([]);
+        setCategorySelectEnabled(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCategories([]);
+        setCategorySelectEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const suppliersByName = useMemo(() => {
     const map = new Map<string, Supplier>();
     for (const s of suppliers) {
@@ -55,6 +81,27 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
     }
     return map;
   }, [suppliers]);
+
+  const categoriesByPointVente = useMemo(() => {
+    const byPoint: Record<"commun" | "ristorante" | "snack_bar", CategoryListItem[]> = {
+      commun: [],
+      ristorante: [],
+      snack_bar: [],
+    };
+    for (const item of categories) {
+      if (item.pointVente === "commun") byPoint.commun.push(item);
+      else if (item.pointVente === "ristorante") byPoint.ristorante.push(item);
+      else if (item.pointVente === "snack_bar") byPoint.snack_bar.push(item);
+    }
+    return byPoint;
+  }, [categories]);
+
+  const legacyCategoryValue = useMemo(() => {
+    const current = (fiche.category ?? "").trim();
+    if (!current) return "";
+    const known = categories.some((item) => item.displayName.toLowerCase() === current.toLowerCase());
+    return known ? "" : current;
+  }, [categories, fiche.category]);
 
   const set = (patch: Partial<FicheTechnique>) => {
     onChange({ ...fiche, ...patch, updatedAt: new Date().toISOString() });
@@ -180,12 +227,54 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
       <div className="field-row">
         <label className="field">
           <span className="field-label">{t(lang, "form.category")}</span>
-          <input
-            className="input"
-            value={fiche.category ?? ""}
-            onChange={(e) => set({ category: e.target.value })}
-            placeholder={t(lang, "form.categoryPlaceholder")}
-          />
+          {categorySelectEnabled ? (
+            <select
+              className="input"
+              value={fiche.category ?? ""}
+              onChange={(e) => set({ category: e.target.value })}
+            >
+              <option value="">{t(lang, "form.categorySelectPlaceholder")}</option>
+              {legacyCategoryValue ? (
+                <option value={legacyCategoryValue}>
+                  {t(lang, "form.categoryCurrentValue", { value: legacyCategoryValue })}
+                </option>
+              ) : null}
+              {categoriesByPointVente.commun.length > 0 ? (
+                <optgroup label={t(lang, "form.categoryGroupCommon")}>
+                  {categoriesByPointVente.commun.map((item) => (
+                    <option key={item.id} value={item.displayName}>
+                      {item.displayName}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {categoriesByPointVente.ristorante.length > 0 ? (
+                <optgroup label={t(lang, "form.categoryGroupRistorante")}>
+                  {categoriesByPointVente.ristorante.map((item) => (
+                    <option key={item.id} value={item.displayName}>
+                      {item.displayName}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              {categoriesByPointVente.snack_bar.length > 0 ? (
+                <optgroup label={t(lang, "form.categoryGroupSnackBar")}>
+                  {categoriesByPointVente.snack_bar.map((item) => (
+                    <option key={item.id} value={item.displayName}>
+                      {item.displayName}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+            </select>
+          ) : (
+            <input
+              className="input"
+              value={fiche.category ?? ""}
+              onChange={(e) => set({ category: e.target.value })}
+              placeholder={t(lang, "form.categoryPlaceholder")}
+            />
+          )}
         </label>
         <label className="field field-compact">
           <span className="field-label">{t(lang, "form.portions")}</span>

@@ -25,6 +25,13 @@ export type FicheListItem = {
   updatedAt: string;
 };
 
+export type CategoryListItem = {
+  id: string;
+  displayName: string;
+  pointVente: string;
+  sortOrder: number;
+};
+
 export async function listFichesFromDb(): Promise<FicheListItem[]> {
   const res = await fetch(`${API_BASE}/fiches`);
   if (!res.ok) throw new Error("Errore lista fiches");
@@ -34,4 +41,14 @@ export async function listFichesFromDb(): Promise<FicheListItem[]> {
 export async function deleteFicheFromDb(id: string): Promise<void> {
   const res = await fetch(`${API_BASE}/fiches/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Errore eliminazione fiche");
+}
+
+export async function listCategories(): Promise<CategoryListItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/categories`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
