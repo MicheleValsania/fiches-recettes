@@ -243,6 +243,12 @@
   margin-top: 8px;
 }
 
+.field-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .library-list--index {
   display: flex;
   flex-direction: column;

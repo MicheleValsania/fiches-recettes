@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { FicheTechnique, HaccpProfile, IngredientLine } from "../types/fiche";
+import type { FicheTechnique, HaccpProfile, IngredientLine, StorageProfile } from "../types/fiche";
 import { computeIngredientCost, formatCurrency } from "../utils/costing";
 import { t, type Lang } from "../i18n";
 import { listCategories, type CategoryListItem } from "../utils/db";
@@ -34,6 +34,14 @@ function updateHaccpProfile(
   profiles: HaccpProfile[],
   index: number,
   patch: Partial<HaccpProfile>
+) {
+  return profiles.map((profile, i) => (i === index ? { ...profile, ...patch } : profile));
+}
+
+function updateStorageProfile(
+  profiles: StorageProfile[],
+  index: number,
+  patch: Partial<StorageProfile>
 ) {
   return profiles.map((profile, i) => (i === index ? { ...profile, ...patch } : profile));
 }
@@ -169,6 +177,27 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
     });
   const removeHaccpProfile = (idx: number) =>
     set({ haccpProfiles: (fiche.haccpProfiles ?? []).filter((_, i) => i !== idx) });
+  const addStorageProfile = () =>
+    set({
+      storageProfiles: [
+        ...(fiche.storageProfiles ?? []),
+        {
+          id: `profile_${Date.now()}`,
+          mode: "",
+          dlcType: "",
+          shelfLifeValue: "",
+          shelfLifeUnit: "",
+          tempMinC: "",
+          tempMaxC: "",
+          startPoint: "",
+          allowedTransformations: [],
+          source: "chef_defined",
+          notes: "",
+        },
+      ],
+    });
+  const removeStorageProfile = (idx: number) =>
+    set({ storageProfiles: (fiche.storageProfiles ?? []).filter((_, i) => i !== idx) });
 
   const ensureSupplier = async (name: string) => {
     const trimmed = name.trim();
@@ -238,6 +267,22 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
       ),
     }));
     return created;
+  };
+
+  const labelHints = fiche.labelHints ?? {
+    labelType: "",
+    displayName: "",
+    legalName: "",
+    allergenDisplayMode: "",
+    allergenManualText: "",
+    productionLabel: "",
+    dlcLabel: "",
+    showInternalLot: false,
+    showSupplierLot: false,
+    showTempRange: false,
+    defaultStorageProfileId: "",
+    qrTarget: "",
+    templateHint: "",
   };
 
   return (
@@ -819,6 +864,267 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="divider" />
+
+      <div className="section-header">
+        <h3>{t(lang, "form.storageProfiles")}</h3>
+        <button className="btn btn-ghost" type="button" onClick={addStorageProfile}>
+          {t(lang, "form.addStorageProfile")}
+        </button>
+      </div>
+
+      <div className="list">
+        {(fiche.storageProfiles ?? []).map((profile, idx) => (
+          <div key={idx} className="ingredient-card haccp-card">
+            <div className="grid-row haccp-grid">
+              <input
+                className="input"
+                value={profile.id}
+                onChange={(e) =>
+                  set({ storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, { id: e.target.value }) })
+                }
+                placeholder={t(lang, "form.storageId")}
+              />
+              <input
+                className="input"
+                value={profile.mode}
+                onChange={(e) =>
+                  set({ storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, { mode: e.target.value }) })
+                }
+                placeholder={t(lang, "form.storageMode")}
+              />
+              <input
+                className="input"
+                value={profile.tempMinC}
+                onChange={(e) =>
+                  set({ storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, { tempMinC: e.target.value }) })
+                }
+                placeholder={t(lang, "form.haccpTempMin")}
+              />
+              <input
+                className="input"
+                value={profile.tempMaxC}
+                onChange={(e) =>
+                  set({ storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, { tempMaxC: e.target.value }) })
+                }
+                placeholder={t(lang, "form.haccpTempMax")}
+              />
+              <input
+                className="input"
+                value={profile.shelfLifeValue}
+                onChange={(e) =>
+                  set({
+                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, { shelfLifeValue: e.target.value }),
+                  })
+                }
+                placeholder={t(lang, "form.haccpShelfLifeValue")}
+              />
+              <select
+                className="input"
+                value={profile.shelfLifeUnit}
+                onChange={(e) =>
+                  set({
+                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
+                      shelfLifeUnit: e.target.value as StorageProfile["shelfLifeUnit"],
+                    }),
+                  })
+                }
+              >
+                <option value="">{t(lang, "form.haccpShelfLifeUnit")}</option>
+                <option value="hours">{t(lang, "form.haccpUnit.hours")}</option>
+                <option value="days">{t(lang, "form.haccpUnit.days")}</option>
+                <option value="months">{t(lang, "form.haccpUnit.months")}</option>
+              </select>
+              <select
+                className="input"
+                value={profile.dlcType}
+                onChange={(e) =>
+                  set({
+                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
+                      dlcType: e.target.value as StorageProfile["dlcType"],
+                    }),
+                  })
+                }
+              >
+                <option value="">{t(lang, "form.haccpDlcType")}</option>
+                <option value="DLC">DLC</option>
+                <option value="DDM">DDM</option>
+              </select>
+              <select
+                className="input"
+                value={profile.startPoint}
+                onChange={(e) =>
+                  set({
+                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
+                      startPoint: e.target.value as StorageProfile["startPoint"],
+                    }),
+                  })
+                }
+              >
+                <option value="">{t(lang, "form.haccpStartPoint")}</option>
+                <option value="production_date">{t(lang, "form.haccpStart.production_date")}</option>
+                <option value="cooling_end">{t(lang, "form.haccpStart.cooling_end")}</option>
+                <option value="opening_date">{t(lang, "form.haccpStart.opening_date")}</option>
+                <option value="thaw_date">{t(lang, "form.haccpStart.thaw_date")}</option>
+                <option value="receipt_date">{t(lang, "form.haccpStart.receipt_date")}</option>
+                <option value="freezing_date">{t(lang, "form.haccpStart.freezing_date")}</option>
+              </select>
+              <input
+                className="input"
+                value={(profile.allowedTransformations ?? []).join(", ")}
+                onChange={(e) =>
+                  set({
+                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
+                      allowedTransformations: e.target.value
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean),
+                    }),
+                  })
+                }
+                placeholder={t(lang, "form.storageTransforms")}
+              />
+              <select
+                className="input"
+                value={profile.source}
+                onChange={(e) =>
+                  set({
+                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
+                      source: e.target.value as StorageProfile["source"],
+                    }),
+                  })
+                }
+              >
+                <option value="">{t(lang, "form.storageSource")}</option>
+                <option value="chef_defined">chef_defined</option>
+                <option value="imported">imported</option>
+                <option value="ai_suggested">ai_suggested</option>
+              </select>
+            </div>
+            <div className="grid-row haccp-grid-note">
+              <textarea
+                className="input textarea"
+                value={profile.notes}
+                onChange={(e) =>
+                  set({ storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, { notes: e.target.value }) })
+                }
+                placeholder={t(lang, "form.haccpNotes")}
+              />
+              <button className="icon-button" type="button" onClick={() => removeStorageProfile(idx)} title={t(lang, "form.remove")}>
+                x
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="divider" />
+
+      <h3>{t(lang, "form.labelHints")}</h3>
+      <div className="grid-row haccp-grid">
+        <select
+          className="input"
+          value={labelHints.labelType}
+          onChange={(e) => set({ labelHints: { ...labelHints, labelType: e.target.value as typeof labelHints.labelType } })}
+        >
+          <option value="">{t(lang, "form.labelType")}</option>
+          <option value="RAW_MATERIAL">RAW_MATERIAL</option>
+          <option value="PREPARATION">PREPARATION</option>
+          <option value="TRANSFORMATION">TRANSFORMATION</option>
+          <option value="OPENED_PRODUCT">OPENED_PRODUCT</option>
+        </select>
+        <input
+          className="input"
+          value={labelHints.displayName}
+          onChange={(e) => set({ labelHints: { ...labelHints, displayName: e.target.value } })}
+          placeholder={t(lang, "form.labelDisplayName")}
+        />
+        <input
+          className="input"
+          value={labelHints.legalName}
+          onChange={(e) => set({ labelHints: { ...labelHints, legalName: e.target.value } })}
+          placeholder={t(lang, "form.labelLegalName")}
+        />
+        <select
+          className="input"
+          value={labelHints.allergenDisplayMode}
+          onChange={(e) =>
+            set({ labelHints: { ...labelHints, allergenDisplayMode: e.target.value as typeof labelHints.allergenDisplayMode } })
+          }
+        >
+          <option value="">{t(lang, "form.labelAllergenMode")}</option>
+          <option value="auto">auto</option>
+          <option value="manual">manual</option>
+          <option value="hide">hide</option>
+        </select>
+        <input
+          className="input"
+          value={labelHints.allergenManualText}
+          onChange={(e) => set({ labelHints: { ...labelHints, allergenManualText: e.target.value } })}
+          placeholder={t(lang, "form.labelAllergenManual")}
+        />
+        <input
+          className="input"
+          value={labelHints.productionLabel}
+          onChange={(e) => set({ labelHints: { ...labelHints, productionLabel: e.target.value } })}
+          placeholder={t(lang, "form.labelProduction")}
+        />
+        <input
+          className="input"
+          value={labelHints.dlcLabel}
+          onChange={(e) => set({ labelHints: { ...labelHints, dlcLabel: e.target.value } })}
+          placeholder={t(lang, "form.labelDlc")}
+        />
+        <input
+          className="input"
+          value={labelHints.defaultStorageProfileId}
+          onChange={(e) => set({ labelHints: { ...labelHints, defaultStorageProfileId: e.target.value } })}
+          placeholder={t(lang, "form.labelDefaultStorage")}
+        />
+        <select
+          className="input"
+          value={labelHints.qrTarget}
+          onChange={(e) => set({ labelHints: { ...labelHints, qrTarget: e.target.value as typeof labelHints.qrTarget } })}
+        >
+          <option value="">{t(lang, "form.labelQrTarget")}</option>
+          <option value="lot">lot</option>
+          <option value="fiche">fiche</option>
+          <option value="none">none</option>
+        </select>
+        <input
+          className="input"
+          value={labelHints.templateHint}
+          onChange={(e) => set({ labelHints: { ...labelHints, templateHint: e.target.value } })}
+          placeholder={t(lang, "form.labelTemplate")}
+        />
+      </div>
+      <div className="grid-row grid-single">
+        <label className="field-checkbox">
+          <input
+            type="checkbox"
+            checked={labelHints.showInternalLot}
+            onChange={(e) => set({ labelHints: { ...labelHints, showInternalLot: e.target.checked } })}
+          />
+          <span>{t(lang, "form.labelShowInternalLot")}</span>
+        </label>
+        <label className="field-checkbox">
+          <input
+            type="checkbox"
+            checked={labelHints.showSupplierLot}
+            onChange={(e) => set({ labelHints: { ...labelHints, showSupplierLot: e.target.checked } })}
+          />
+          <span>{t(lang, "form.labelShowSupplierLot")}</span>
+        </label>
+        <label className="field-checkbox">
+          <input
+            type="checkbox"
+            checked={labelHints.showTempRange}
+            onChange={(e) => set({ labelHints: { ...labelHints, showTempRange: e.target.checked } })}
+          />
+          <span>{t(lang, "form.labelShowTempRange")}</span>
+        </label>
       </div>
 
       <div className="divider" />

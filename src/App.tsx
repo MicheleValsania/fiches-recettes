@@ -8,6 +8,7 @@ import FicheForm from "./components/FicheForm";
 import FichePreview from "./components/FichePreview";
 import { getInitialLang, LANG_STORAGE_KEY, localeByLang, t, type Lang } from "./i18n";
 import { downloadBlob, downloadJson, readJsonFile, safeFilename } from "./utils/exporters";
+import { buildExportEnvelopeV11 } from "./utils/exportV11";
 import { exportElementToA4Pdf, exportSupplierOrderListPdf, renderElementToA4PdfBlob } from "./utils/pdf";
 import { createZipBlob } from "./utils/zip";
 import {
@@ -51,6 +52,22 @@ function newFiche(): FicheTechnique {
     ingredients: [{ name: "", qty: "", note: "" }],
     steps: [""],
     haccpProfiles: [],
+    storageProfiles: [],
+    labelHints: {
+      labelType: "",
+      displayName: "",
+      legalName: "",
+      allergenDisplayMode: "",
+      allergenManualText: "",
+      productionLabel: "",
+      dlcLabel: "",
+      showInternalLot: false,
+      showSupplierLot: false,
+      showTempRange: false,
+      defaultStorageProfileId: "",
+      qrTarget: "",
+      templateHint: "",
+    },
     notes: "",
     createdAt: now,
     updatedAt: now,
@@ -295,14 +312,8 @@ export default function App() {
       }
 
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      downloadJson(
-        {
-          exportedAt: new Date().toISOString(),
-          count: fiches.length,
-          fiches,
-        },
-        `fiches-techniques-${stamp}.json`
-      );
+      const envelope = buildExportEnvelopeV11(fiches, lang);
+      downloadJson(envelope, `fiches-techniques-${stamp}.json`);
       setDbStatus(t(lang, "status.exportedAllJson", { count: fiches.length }));
     } catch {
       setDbStatus(t(lang, "status.exportAllError"));
@@ -1226,6 +1237,21 @@ export default function App() {
     if (data.ingredients.some((ing) => ing.name.trim() || ing.qty.trim() || ing.note?.trim())) return true;
     if (data.steps.some((step) => step.trim())) return true;
     if (data.haccpProfiles?.some((p) => p.process || p.packaging || p.notes || p.shelfLifeValue || p.tempMaxC || p.tempMinC))
+      return true;
+    if (data.storageProfiles?.some((p) => p.mode || p.notes || p.shelfLifeValue || p.tempMinC || p.tempMaxC)) return true;
+    if (
+      data.labelHints &&
+      (data.labelHints.labelType ||
+        data.labelHints.displayName ||
+        data.labelHints.legalName ||
+        data.labelHints.allergenDisplayMode ||
+        data.labelHints.allergenManualText ||
+        data.labelHints.productionLabel ||
+        data.labelHints.dlcLabel ||
+        data.labelHints.defaultStorageProfileId ||
+        data.labelHints.qrTarget ||
+        data.labelHints.templateHint)
+    )
       return true;
     if (data.allergens.some((al) => al.trim())) return true;
     if (data.equipment.some((eq) => eq.trim())) return true;
