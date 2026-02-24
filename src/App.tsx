@@ -311,10 +311,34 @@ export default function App() {
         return;
       }
 
+      const fichesWithResolvedPrices = await Promise.all(
+        fiches.map(async (entry) => {
+          const localPriceIndex = await buildPriceIndexForIngredients(entry.ingredients ?? []);
+          const normalizeExportUnit = (value: string | null): FicheTechnique["ingredients"][number]["unitPriceUnit"] => {
+            if (!value) return undefined;
+            const unit = value.toLowerCase();
+            if (unit === "kg" || unit === "g" || unit === "l" || unit === "ml" || unit === "cl" || unit === "pc") {
+              return unit;
+            }
+            return undefined;
+          };
+          const ingredients = (entry.ingredients ?? []).map((ing) => {
+            const match = getPriceForIngredientFromIndex(localPriceIndex, ing);
+            if (!match) return ing;
+            return {
+              ...ing,
+              unitPrice: ing.unitPrice ?? match.unitPrice ?? undefined,
+              unitPriceUnit: ing.unitPriceUnit ?? normalizeExportUnit(match.unit),
+            };
+          });
+          return { ...entry, ingredients };
+        })
+      );
+
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      const envelope = buildExportEnvelopeV11(fiches, lang);
+      const envelope = buildExportEnvelopeV11(fichesWithResolvedPrices, lang);
       downloadJson(envelope, `fiches-techniques-${stamp}.json`);
-      setDbStatus(t(lang, "status.exportedAllJson", { count: fiches.length }));
+      setDbStatus(t(lang, "status.exportedAllJson", { count: fichesWithResolvedPrices.length }));
     } catch {
       setDbStatus(t(lang, "status.exportAllError"));
     } finally {
