@@ -226,6 +226,29 @@
   gap: 12px;
 }
 
+.haccp-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.haccp-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.haccp-grid-note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.field-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .library-list--index {
   display: flex;
   flex-direction: column;
