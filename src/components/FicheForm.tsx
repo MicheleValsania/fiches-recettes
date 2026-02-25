@@ -125,7 +125,7 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
 
   const addIngredient = () => {
     set({
-      ingredients: [...fiche.ingredients, { name: "", qty: "", note: "" }],
+      ingredients: [...fiche.ingredients, { name: "", displayName: "", qty: "", note: "" }],
     });
   };
 
@@ -390,52 +390,17 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
             <div className="grid-row grid-ingredients-main">
               <input
                 className="input"
-                list={`supplier-products-${idx}`}
-                value={ing.name}
+                value={ing.displayName ?? ing.name}
                 onChange={(e) => {
-                  const value = e.target.value;
+                  const displayValue = e.target.value;
                   set({
                     ingredients: updateIngredient(fiche.ingredients, idx, {
-                      name: value,
-                      supplierProductId: undefined,
+                      displayName: displayValue,
                     }),
                   });
                 }}
-                onBlur={async (e) => {
-                  const supplierId = await ensureSupplierId(ing, idx);
-                  if (!supplierId) return;
-                  const value = e.currentTarget.value;
-                  if (!value.trim()) return;
-                  const items = await loadProducts(supplierId);
-                  const match = items.find((p) => p.name.toLowerCase() === value.toLowerCase());
-                  if (match) {
-                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                      name: match.name,
-                      supplierProductId: match.id,
-                      unitPrice: undefined,
-                      unitPriceUnit: undefined,
-                    });
-                    set({ ingredients: nextIngredients });
-                    await onPriceIndexRefresh(nextIngredients);
-                    return;
-                  }
-                  const created = await ensureSupplierProduct(supplierId, value, null, null);
-                  if (created) {
-                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                      name: created.name,
-                      supplierProductId: created.id,
-                    });
-                    set({ ingredients: nextIngredients });
-                    await onPriceIndexRefresh(nextIngredients);
-                  }
-                }}
                 placeholder={t(lang, "form.ingredientPlaceholder")}
               />
-              <datalist id={`supplier-products-${idx}`}>
-                {(ing.supplierId ? productsBySupplier[ing.supplierId] || [] : []).map((p) => (
-                  <option key={p.id} value={p.name} />
-                ))}
-              </datalist>
               <input
                 className="input"
                 value={ing.qty}
@@ -479,7 +444,7 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
                 type="button"
                 onClick={() =>
                   set({
-                    ingredients: insertItem(fiche.ingredients, idx + 1, { name: "", qty: "", note: "" }),
+                    ingredients: insertItem(fiche.ingredients, idx + 1, { name: "", displayName: "", qty: "", note: "" }),
                   })
                 }
                 title={t(lang, "form.addBelow")}
@@ -489,6 +454,60 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
             </div>
 
             <div className="grid-row grid-ingredients-extra">
+              <input
+                className="input"
+                list={`supplier-products-${idx}`}
+                value={ing.name}
+                onChange={(e) => {
+                  const productValue = e.target.value;
+                  set({
+                    ingredients: updateIngredient(fiche.ingredients, idx, {
+                      name: productValue,
+                      supplierProductId: undefined,
+                      displayName:
+                        !ing.displayName || ing.displayName === ing.name ? productValue : ing.displayName,
+                    }),
+                  });
+                }}
+                onBlur={async (e) => {
+                  const supplierId = await ensureSupplierId(ing, idx);
+                  if (!supplierId) return;
+                  const value = e.currentTarget.value;
+                  if (!value.trim()) return;
+                  const items = await loadProducts(supplierId);
+                  const match = items.find((p) => p.name.toLowerCase() === value.toLowerCase());
+                  if (match) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      name: match.name,
+                      supplierProductId: match.id,
+                      unitPrice: undefined,
+                      unitPriceUnit: undefined,
+                      displayName:
+                        !ing.displayName || ing.displayName === ing.name ? match.name : ing.displayName,
+                    });
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
+                    return;
+                  }
+                  const created = await ensureSupplierProduct(supplierId, value, null, null);
+                  if (created) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      name: created.name,
+                      supplierProductId: created.id,
+                      displayName:
+                        !ing.displayName || ing.displayName === ing.name ? created.name : ing.displayName,
+                    });
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
+                  }
+                }}
+                placeholder={t(lang, "form.productPlaceholder")}
+              />
+              <datalist id={`supplier-products-${idx}`}>
+                {(ing.supplierId ? productsBySupplier[ing.supplierId] || [] : []).map((p) => (
+                  <option key={p.id} value={p.name} />
+                ))}
+              </datalist>
               <input
                 className="input"
                 list={`supplier-list-${idx}`}
