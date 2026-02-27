@@ -81,7 +81,8 @@ await pool.query(`
     ('snack_assiette', 'Assiette', 'snack_bar', 24),
     ('snack_salade_bowl', 'Salade & Bowl', 'snack_bar', 25),
     ('snack_dessert', 'Dessert snack', 'snack_bar', 26),
-    ('snack_petit_dejeuner', 'Petit dejeuner', 'snack_bar', 27)
+    ('snack_petit_dejeuner', 'Petit dejeuner', 'snack_bar', 27),
+    ('snack_patate', 'Patate', 'snack_bar', 28)
   ON CONFLICT (id) DO NOTHING;
 `);
 
