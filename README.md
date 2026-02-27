@@ -237,3 +237,13 @@ src/
 ## Nota operativa
 - L'app e' in uso quotidiano reale (fornitori, prodotti, decine di fiches tecniche).
 - Questo uso continuo copre smoke test pratici su editor, libreria, listini e flussi di export/import.
+
+## Documentazione
+La documentazione strutturata e aggiornata e in `docs/`:
+- `docs/README.md`
+- `docs/00_PRODUCT_SCOPE.md`
+- `docs/01_OPERATIONS_RUNBOOK.md`
+- `docs/02_DATA_MODEL_AND_CONTRACTS.md`
+- `docs/03_ROADMAP.md`
+
+I documenti storici sono in `docs/archive/`.
