@@ -187,6 +187,18 @@ npm run build
 npm run preview
 ```
 
+## Import fiches JSON (safe UTF-8)
+Per importare envelope JSON da terminale senza corrompere accenti/caratteri speciali:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/import-fiches-envelope.ps1 -Path "C:\path\to\fiches.json"
+```
+
+Note:
+- Lo script legge il file in UTF-8 strict.
+- Lo script invia payload come bytes UTF-8 (`charset=utf-8`) verso `/api/fiches`.
+- Se trova testo sospetto (`Ã`, `Â`, `�`) blocca l'import (override con `-AllowSuspectText`).
+
 ## Struttura progetto
 ```
 server/            # backend Express + Postgres

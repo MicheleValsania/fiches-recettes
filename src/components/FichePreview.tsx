@@ -32,6 +32,30 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
 
   const locale = localeByLang[lang];
   const emptyMark = "-";
+  const haccpProcessLabel: Record<NonNullable<FicheTechnique["haccpProfiles"]>[number]["process"], string> = {
+    COOK_CHILL: t(lang, "form.haccpProcess.COOK_CHILL"),
+    MARINATION: t(lang, "form.haccpProcess.MARINATION"),
+    VACUUM_PASTEURIZATION: t(lang, "form.haccpProcess.VACUUM_PASTEURIZATION"),
+    SOUS_VIDE_COOK: t(lang, "form.haccpProcess.SOUS_VIDE_COOK"),
+    FREEZING: t(lang, "form.haccpProcess.FREEZING"),
+    THAWING: t(lang, "form.haccpProcess.THAWING"),
+    HOT_HOLDING: t(lang, "form.haccpProcess.HOT_HOLDING"),
+    OTHER: t(lang, "form.haccpProcess.OTHER"),
+  };
+  const hasLabelHints =
+    !!fiche.labelHints &&
+    (fiche.labelHints.labelType ||
+      fiche.labelHints.displayName ||
+      fiche.labelHints.legalName ||
+      fiche.labelHints.allergenDisplayMode ||
+      fiche.labelHints.productionLabel ||
+      fiche.labelHints.dlcLabel ||
+      fiche.labelHints.defaultStorageProfileId ||
+      fiche.labelHints.qrTarget ||
+      fiche.labelHints.templateHint ||
+      fiche.labelHints.showInternalLot ||
+      fiche.labelHints.showSupplierLot ||
+      fiche.labelHints.showTempRange);
 
   return (
     <div className="sheet">
@@ -126,6 +150,66 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
             </li>
           ))}
         </ol>
+      )}
+
+      {(fiche.haccpProfiles?.length ?? 0) > 0 && (
+        <>
+          <hr />
+          <h2 className="preview-section">{t(lang, "preview.haccpProfiles")}</h2>
+          <ul className="preview-list">
+            {(fiche.haccpProfiles ?? []).map((profile, idx) => (
+              <li key={idx}>
+                <strong>{haccpProcessLabel[profile.process]}</strong>
+                {" | "}
+                {profile.packaging || emptyMark}
+                {" | "}
+                {profile.tempMinC || emptyMark} C / {profile.tempMaxC || emptyMark} C
+                {" | "}
+                {profile.shelfLifeValue || emptyMark} {profile.shelfLifeUnit || ""}
+                {" | "}
+                {profile.dlcType || emptyMark}
+                {profile.notes?.trim() ? ` | ${profile.notes}` : ""}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {(fiche.storageProfiles?.length ?? 0) > 0 && (
+        <>
+          <hr />
+          <h2 className="preview-section">{t(lang, "preview.storageProfiles")}</h2>
+          <ul className="preview-list">
+            {(fiche.storageProfiles ?? []).map((profile, idx) => (
+              <li key={idx}>
+                <strong>{profile.mode || emptyMark}</strong>
+                {" | "}
+                {profile.tempMinC || emptyMark} C / {profile.tempMaxC || emptyMark} C
+                {" | "}
+                {profile.shelfLifeValue || emptyMark} {profile.shelfLifeUnit || ""}
+                {" | "}
+                {profile.dlcType || emptyMark}
+                {" | "}
+                {profile.startPoint || emptyMark}
+                {profile.notes?.trim() ? ` | ${profile.notes}` : ""}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {hasLabelHints && (
+        <>
+          <hr />
+          <h2 className="preview-section">{t(lang, "preview.labelHints")}</h2>
+          <ul className="preview-list">
+            <li>{t(lang, "form.labelType")}: {fiche.labelHints?.labelType || emptyMark}</li>
+            <li>{t(lang, "form.labelDisplayName")}: {fiche.labelHints?.displayName || emptyMark}</li>
+            <li>{t(lang, "form.labelLegalName")}: {fiche.labelHints?.legalName || emptyMark}</li>
+            <li>{t(lang, "form.labelQrTarget")}: {fiche.labelHints?.qrTarget || emptyMark}</li>
+            <li>{t(lang, "form.labelTemplate")}: {fiche.labelHints?.templateHint || emptyMark}</li>
+          </ul>
+        </>
       )}
 
       {(fiche.equipment.length > 0 || fiche.allergens.length > 0) && (

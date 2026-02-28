@@ -1,0 +1,108 @@
+{
+  "handoff_version": "1.0",
+  "generated_at": "2026-02-24",
+  "source_system": {
+    "name": "fiches-recettes",
+    "stack": [
+      "React",
+      "Node.js",
+      "PostgreSQL"
+    ],
+    "dataset_size_fiches": 95
+  },
+  "status": {
+    "app_stability": "stable",
+    "major_fixes_applied": [
+      "Fixed fiche open crash by normalizing core array fields",
+      "Added UTF-8 strict envelope import script",
+      "Fixed JSON export to resolve ingredient prices from supplier list pre-serialization"
+    ],
+    "git_state": "clean_branch_after_commits"
+  },
+  "api_surface": {
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/api/fiches",
+        "purpose": "List fiches"
+      },
+      {
+        "method": "GET",
+        "path": "/api/fiches/:id",
+        "purpose": "Get fiche payload"
+      },
+      {
+        "method": "POST",
+        "path": "/api/fiches",
+        "purpose": "Upsert fiche"
+      }
+    ],
+    "export_flow": {
+      "frontend_fn": "onExportAllFiches",
+      "envelope_builder": "buildExportEnvelopeV11",
+      "price_resolution": "resolved from supplier list before export"
+    }
+  },
+  "data_contract_priority_fields": {
+    "fiche": [
+      "fiche_id",
+      "title",
+      "category",
+      "updated_at",
+      "storage_profiles",
+      "haccp_profiles",
+      "label_hints"
+    ],
+    "ingredient": [
+      "ingredient_name_raw",
+      "supplier_name",
+      "supplier_id",
+      "supplier_product_id",
+      "quantity_raw",
+      "unit_price_value",
+      "unit_price_unit"
+    ]
+  },
+  "quality_assessment": {
+    "overall_readiness": "usable_with_quality_backlog",
+    "strengths": [
+      "Schema is mostly consistent and importable",
+      "HACCP/DLC metadata exists on a significant subset",
+      "Exported prices improved when supplier mapping exists"
+    ],
+    "known_gaps": [
+      "Ingredient-to-product mapping is incomplete on part of the catalog",
+      "Residual text encoding artifacts exist on a limited subset",
+      "PDF is suitable for human reading but not as primary machine source"
+    ]
+  },
+  "ingest_recommendations": {
+    "validation": [
+      "Hard-validate required arrays and primitive types",
+      "Reject malformed IDs and unparseable dates"
+    ],
+    "product_resolution": {
+      "primary_key": "supplier_product_id",
+      "fallback": "supplier_id + normalized product name with review queue"
+    },
+    "price_policy": [
+      "Use exported unit_price_value when present",
+      "Fallback to product master lookup when supplier_product_id exists"
+    ],
+    "provenance": [
+      "Track field provenance: from_export or from_master"
+    ]
+  },
+  "phase_1_acceptance_criteria": [
+    "JSON v1.1 ingest succeeds on >95% fiches without blocking errors",
+    "Automatic ingredient-to-product match rate >85%",
+    "Price coverage >80% on mapped ingredients",
+    "All transformations are audit-logged"
+  ],
+  "operations": {
+    "safe_import_command": "powershell -ExecutionPolicy Bypass -File scripts/import-fiches-envelope.ps1 -Path \"C:\\\\path\\\\file.json\"",
+    "do_not_use": [
+      "Ad-hoc PowerShell JSON POST with non-UTF-8 string bodies"
+    ]
+  }
+}
