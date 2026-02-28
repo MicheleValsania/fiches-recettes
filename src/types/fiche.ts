@@ -1,5 +1,6 @@
 export type IngredientLine = {
   name: string;
+  displayName?: string;
   qty: string;      // es: "200 g", "2 pcs", "1 tbsp"
   note?: string;
   supplier?: string;

@@ -52,6 +52,9 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
   const [categorySelectEnabled, setCategorySelectEnabled] = useState(false);
   const [productsBySupplier, setProductsBySupplier] = useState<Record<string, SupplierProduct[]>>({});
   const [priceDrafts, setPriceDrafts] = useState<Record<string, { unitPrice: string; unit: string }>>({});
+  const [showAdvancedHaccp, setShowAdvancedHaccp] = useState(false);
+  const [showAdvancedStorage, setShowAdvancedStorage] = useState(false);
+  const [showAdvancedLabel, setShowAdvancedLabel] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -125,7 +128,7 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
 
   const addIngredient = () => {
     set({
-      ingredients: [...fiche.ingredients, { name: "", qty: "", note: "" }],
+      ingredients: [...fiche.ingredients, { name: "", displayName: "", qty: "", note: "" }],
     });
   };
 
@@ -390,52 +393,17 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
             <div className="grid-row grid-ingredients-main">
               <input
                 className="input"
-                list={`supplier-products-${idx}`}
-                value={ing.name}
+                value={ing.displayName ?? ing.name}
                 onChange={(e) => {
-                  const value = e.target.value;
+                  const displayValue = e.target.value;
                   set({
                     ingredients: updateIngredient(fiche.ingredients, idx, {
-                      name: value,
-                      supplierProductId: undefined,
+                      displayName: displayValue,
                     }),
                   });
                 }}
-                onBlur={async (e) => {
-                  const supplierId = await ensureSupplierId(ing, idx);
-                  if (!supplierId) return;
-                  const value = e.currentTarget.value;
-                  if (!value.trim()) return;
-                  const items = await loadProducts(supplierId);
-                  const match = items.find((p) => p.name.toLowerCase() === value.toLowerCase());
-                  if (match) {
-                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                      name: match.name,
-                      supplierProductId: match.id,
-                      unitPrice: undefined,
-                      unitPriceUnit: undefined,
-                    });
-                    set({ ingredients: nextIngredients });
-                    await onPriceIndexRefresh(nextIngredients);
-                    return;
-                  }
-                  const created = await ensureSupplierProduct(supplierId, value, null, null);
-                  if (created) {
-                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
-                      name: created.name,
-                      supplierProductId: created.id,
-                    });
-                    set({ ingredients: nextIngredients });
-                    await onPriceIndexRefresh(nextIngredients);
-                  }
-                }}
                 placeholder={t(lang, "form.ingredientPlaceholder")}
               />
-              <datalist id={`supplier-products-${idx}`}>
-                {(ing.supplierId ? productsBySupplier[ing.supplierId] || [] : []).map((p) => (
-                  <option key={p.id} value={p.name} />
-                ))}
-              </datalist>
               <input
                 className="input"
                 value={ing.qty}
@@ -479,7 +447,7 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
                 type="button"
                 onClick={() =>
                   set({
-                    ingredients: insertItem(fiche.ingredients, idx + 1, { name: "", qty: "", note: "" }),
+                    ingredients: insertItem(fiche.ingredients, idx + 1, { name: "", displayName: "", qty: "", note: "" }),
                   })
                 }
                 title={t(lang, "form.addBelow")}
@@ -489,6 +457,60 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
             </div>
 
             <div className="grid-row grid-ingredients-extra">
+              <input
+                className="input"
+                list={`supplier-products-${idx}`}
+                value={ing.name}
+                onChange={(e) => {
+                  const productValue = e.target.value;
+                  set({
+                    ingredients: updateIngredient(fiche.ingredients, idx, {
+                      name: productValue,
+                      supplierProductId: undefined,
+                      displayName:
+                        !ing.displayName || ing.displayName === ing.name ? productValue : ing.displayName,
+                    }),
+                  });
+                }}
+                onBlur={async (e) => {
+                  const supplierId = await ensureSupplierId(ing, idx);
+                  if (!supplierId) return;
+                  const value = e.currentTarget.value;
+                  if (!value.trim()) return;
+                  const items = await loadProducts(supplierId);
+                  const match = items.find((p) => p.name.toLowerCase() === value.toLowerCase());
+                  if (match) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      name: match.name,
+                      supplierProductId: match.id,
+                      unitPrice: undefined,
+                      unitPriceUnit: undefined,
+                      displayName:
+                        !ing.displayName || ing.displayName === ing.name ? match.name : ing.displayName,
+                    });
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
+                    return;
+                  }
+                  const created = await ensureSupplierProduct(supplierId, value, null, null);
+                  if (created) {
+                    const nextIngredients = updateIngredient(fiche.ingredients, idx, {
+                      name: created.name,
+                      supplierProductId: created.id,
+                      displayName:
+                        !ing.displayName || ing.displayName === ing.name ? created.name : ing.displayName,
+                    });
+                    set({ ingredients: nextIngredients });
+                    await onPriceIndexRefresh(nextIngredients);
+                  }
+                }}
+                placeholder={t(lang, "form.productPlaceholder")}
+              />
+              <datalist id={`supplier-products-${idx}`}>
+                {(ing.supplierId ? productsBySupplier[ing.supplierId] || [] : []).map((p) => (
+                  <option key={p.id} value={p.name} />
+                ))}
+              </datalist>
               <input
                 className="input"
                 list={`supplier-list-${idx}`}
@@ -738,9 +760,14 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
 
       <div className="section-header">
         <h3>{t(lang, "form.haccpProfiles")}</h3>
-        <button className="btn btn-ghost" type="button" onClick={addHaccpProfile}>
-          {t(lang, "form.addHaccpProfile")}
-        </button>
+        <div className="section-actions">
+          <button className="btn btn-ghost" type="button" onClick={() => setShowAdvancedHaccp((prev) => !prev)}>
+            {showAdvancedHaccp ? t(lang, "form.showBasic") : t(lang, "form.showAdvanced")}
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={addHaccpProfile}>
+            {t(lang, "form.addHaccpProfile")}
+          </button>
+        </div>
       </div>
 
       <div className="list">
@@ -763,91 +790,95 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
                 <option value="HOT_HOLDING">{t(lang, "form.haccpProcess.HOT_HOLDING")}</option>
                 <option value="OTHER">{t(lang, "form.haccpProcess.OTHER")}</option>
               </select>
-              <input
-                className="input"
-                value={profile.packaging}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { packaging: e.target.value }) })
-                }
-                placeholder={t(lang, "form.haccpPackaging")}
-              />
-              <input
-                className="input"
-                value={profile.tempMinC}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { tempMinC: e.target.value }) })
-                }
-                placeholder={t(lang, "form.haccpTempMin")}
-              />
-              <input
-                className="input"
-                value={profile.tempMaxC}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { tempMaxC: e.target.value }) })
-                }
-                placeholder={t(lang, "form.haccpTempMax")}
-              />
-              <input
-                className="input"
-                value={profile.coreTempC}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { coreTempC: e.target.value }) })
-                }
-                placeholder={t(lang, "form.haccpCoreTemp")}
-              />
-              <input
-                className="input"
-                value={profile.holdTimeMin}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { holdTimeMin: e.target.value }) })
-                }
-                placeholder={t(lang, "form.haccpHoldMin")}
-              />
-              <input
-                className="input"
-                value={profile.shelfLifeValue}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { shelfLifeValue: e.target.value }) })
-                }
-                placeholder={t(lang, "form.haccpShelfLifeValue")}
-              />
-              <select
-                className="input"
-                value={profile.shelfLifeUnit}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { shelfLifeUnit: e.target.value as HaccpProfile["shelfLifeUnit"] }) })
-                }
-              >
-                <option value="">{t(lang, "form.haccpShelfLifeUnit")}</option>
-                <option value="hours">{t(lang, "form.haccpUnit.hours")}</option>
-                <option value="days">{t(lang, "form.haccpUnit.days")}</option>
-                <option value="months">{t(lang, "form.haccpUnit.months")}</option>
-              </select>
-              <select
-                className="input"
-                value={profile.dlcType}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { dlcType: e.target.value as HaccpProfile["dlcType"] }) })
-                }
-              >
-                <option value="">{t(lang, "form.haccpDlcType")}</option>
-                <option value="DLC">DLC</option>
-                <option value="DDM">DDM</option>
-              </select>
-              <select
-                className="input"
-                value={profile.startPoint}
-                onChange={(e) =>
-                  set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { startPoint: e.target.value as HaccpProfile["startPoint"] }) })
-                }
-              >
-                <option value="">{t(lang, "form.haccpStartPoint")}</option>
-                <option value="production_date">{t(lang, "form.haccpStart.production_date")}</option>
-                <option value="cooling_end">{t(lang, "form.haccpStart.cooling_end")}</option>
-                <option value="opening_date">{t(lang, "form.haccpStart.opening_date")}</option>
-                <option value="thaw_date">{t(lang, "form.haccpStart.thaw_date")}</option>
-                <option value="receipt_date">{t(lang, "form.haccpStart.receipt_date")}</option>
-              </select>
+                <input
+                  className="input"
+                  value={profile.packaging}
+                  onChange={(e) =>
+                    set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { packaging: e.target.value }) })
+                  }
+                  placeholder={t(lang, "form.haccpPackaging")}
+                />
+              {showAdvancedHaccp ? (
+                <>
+                  <input
+                    className="input"
+                    value={profile.tempMinC}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { tempMinC: e.target.value }) })
+                    }
+                    placeholder={t(lang, "form.haccpTempMin")}
+                  />
+                  <input
+                    className="input"
+                    value={profile.tempMaxC}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { tempMaxC: e.target.value }) })
+                    }
+                    placeholder={t(lang, "form.haccpTempMax")}
+                  />
+                  <input
+                    className="input"
+                    value={profile.coreTempC}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { coreTempC: e.target.value }) })
+                    }
+                    placeholder={t(lang, "form.haccpCoreTemp")}
+                  />
+                  <input
+                    className="input"
+                    value={profile.holdTimeMin}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { holdTimeMin: e.target.value }) })
+                    }
+                    placeholder={t(lang, "form.haccpHoldMin")}
+                  />
+                  <input
+                    className="input"
+                    value={profile.shelfLifeValue}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { shelfLifeValue: e.target.value }) })
+                    }
+                    placeholder={t(lang, "form.haccpShelfLifeValue")}
+                  />
+                  <select
+                    className="input"
+                    value={profile.shelfLifeUnit}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { shelfLifeUnit: e.target.value as HaccpProfile["shelfLifeUnit"] }) })
+                    }
+                  >
+                    <option value="">{t(lang, "form.haccpShelfLifeUnit")}</option>
+                    <option value="hours">{t(lang, "form.haccpUnit.hours")}</option>
+                    <option value="days">{t(lang, "form.haccpUnit.days")}</option>
+                    <option value="months">{t(lang, "form.haccpUnit.months")}</option>
+                  </select>
+                  <select
+                    className="input"
+                    value={profile.dlcType}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { dlcType: e.target.value as HaccpProfile["dlcType"] }) })
+                    }
+                  >
+                    <option value="">{t(lang, "form.haccpDlcType")}</option>
+                    <option value="DLC">DLC</option>
+                    <option value="DDM">DDM</option>
+                  </select>
+                  <select
+                    className="input"
+                    value={profile.startPoint}
+                    onChange={(e) =>
+                      set({ haccpProfiles: updateHaccpProfile(fiche.haccpProfiles ?? [], idx, { startPoint: e.target.value as HaccpProfile["startPoint"] }) })
+                    }
+                  >
+                    <option value="">{t(lang, "form.haccpStartPoint")}</option>
+                    <option value="production_date">{t(lang, "form.haccpStart.production_date")}</option>
+                    <option value="cooling_end">{t(lang, "form.haccpStart.cooling_end")}</option>
+                    <option value="opening_date">{t(lang, "form.haccpStart.opening_date")}</option>
+                    <option value="thaw_date">{t(lang, "form.haccpStart.thaw_date")}</option>
+                    <option value="receipt_date">{t(lang, "form.haccpStart.receipt_date")}</option>
+                  </select>
+                </>
+              ) : null}
             </div>
             <div className="grid-row haccp-grid-note">
               <textarea
@@ -870,9 +901,14 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
 
       <div className="section-header">
         <h3>{t(lang, "form.storageProfiles")}</h3>
-        <button className="btn btn-ghost" type="button" onClick={addStorageProfile}>
-          {t(lang, "form.addStorageProfile")}
-        </button>
+        <div className="section-actions">
+          <button className="btn btn-ghost" type="button" onClick={() => setShowAdvancedStorage((prev) => !prev)}>
+            {showAdvancedStorage ? t(lang, "form.showBasic") : t(lang, "form.showAdvanced")}
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={addStorageProfile}>
+            {t(lang, "form.addStorageProfile")}
+          </button>
+        </div>
       </div>
 
       <div className="list">
@@ -971,38 +1007,42 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
                 <option value="receipt_date">{t(lang, "form.haccpStart.receipt_date")}</option>
                 <option value="freezing_date">{t(lang, "form.haccpStart.freezing_date")}</option>
               </select>
-              <input
-                className="input"
-                value={(profile.allowedTransformations ?? []).join(", ")}
-                onChange={(e) =>
-                  set({
-                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
-                      allowedTransformations: e.target.value
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    }),
-                  })
-                }
-                placeholder={t(lang, "form.storageTransforms")}
-              />
-              <select
-                className="input"
-                value={profile.source}
-                onChange={(e) =>
-                  set({
-                    storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
-                      source: e.target.value as StorageProfile["source"],
-                    }),
-                  })
-                }
-              >
-                <option value="">{t(lang, "form.storageSource")}</option>
-                <option value="chef_defined">chef_defined</option>
-                <option value="imported">imported</option>
-                <option value="ai_suggested">ai_suggested</option>
-              </select>
             </div>
+            {showAdvancedStorage ? (
+              <div className="grid-row haccp-grid">
+                <input
+                  className="input"
+                  value={(profile.allowedTransformations ?? []).join(", ")}
+                  onChange={(e) =>
+                    set({
+                      storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
+                        allowedTransformations: e.target.value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      }),
+                    })
+                  }
+                  placeholder={t(lang, "form.storageTransforms")}
+                />
+                <select
+                  className="input"
+                  value={profile.source}
+                  onChange={(e) =>
+                    set({
+                      storageProfiles: updateStorageProfile(fiche.storageProfiles ?? [], idx, {
+                        source: e.target.value as StorageProfile["source"],
+                      }),
+                    })
+                  }
+                >
+                  <option value="">{t(lang, "form.storageSource")}</option>
+                  <option value="chef_defined">chef_defined</option>
+                  <option value="imported">imported</option>
+                  <option value="ai_suggested">ai_suggested</option>
+                </select>
+              </div>
+            ) : null}
             <div className="grid-row haccp-grid-note">
               <textarea
                 className="input textarea"
@@ -1022,7 +1062,14 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
 
       <div className="divider" />
 
-      <h3>{t(lang, "form.labelHints")}</h3>
+      <div className="section-header">
+        <h3>{t(lang, "form.labelHints")}</h3>
+        <div className="section-actions">
+          <button className="btn btn-ghost" type="button" onClick={() => setShowAdvancedLabel((prev) => !prev)}>
+            {showAdvancedLabel ? t(lang, "form.showBasic") : t(lang, "form.showAdvanced")}
+          </button>
+        </div>
+      </div>
       <div className="grid-row haccp-grid">
         <select
           className="input"
@@ -1067,18 +1114,6 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
         />
         <input
           className="input"
-          value={labelHints.productionLabel}
-          onChange={(e) => set({ labelHints: { ...labelHints, productionLabel: e.target.value } })}
-          placeholder={t(lang, "form.labelProduction")}
-        />
-        <input
-          className="input"
-          value={labelHints.dlcLabel}
-          onChange={(e) => set({ labelHints: { ...labelHints, dlcLabel: e.target.value } })}
-          placeholder={t(lang, "form.labelDlc")}
-        />
-        <input
-          className="input"
           value={labelHints.defaultStorageProfileId}
           onChange={(e) => set({ labelHints: { ...labelHints, defaultStorageProfileId: e.target.value } })}
           placeholder={t(lang, "form.labelDefaultStorage")}
@@ -1093,13 +1128,29 @@ export default function FicheForm({ fiche, lang, onChange, getPriceForIngredient
           <option value="fiche">fiche</option>
           <option value="none">none</option>
         </select>
-        <input
-          className="input"
-          value={labelHints.templateHint}
-          onChange={(e) => set({ labelHints: { ...labelHints, templateHint: e.target.value } })}
-          placeholder={t(lang, "form.labelTemplate")}
-        />
       </div>
+      {showAdvancedLabel ? (
+        <div className="grid-row haccp-grid">
+          <input
+            className="input"
+            value={labelHints.productionLabel}
+            onChange={(e) => set({ labelHints: { ...labelHints, productionLabel: e.target.value } })}
+            placeholder={t(lang, "form.labelProduction")}
+          />
+          <input
+            className="input"
+            value={labelHints.dlcLabel}
+            onChange={(e) => set({ labelHints: { ...labelHints, dlcLabel: e.target.value } })}
+            placeholder={t(lang, "form.labelDlc")}
+          />
+          <input
+            className="input"
+            value={labelHints.templateHint}
+            onChange={(e) => set({ labelHints: { ...labelHints, templateHint: e.target.value } })}
+            placeholder={t(lang, "form.labelTemplate")}
+          />
+        </div>
+      ) : null}
       <div className="grid-row grid-single">
         <label className="field-checkbox">
           <input

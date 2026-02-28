@@ -104,7 +104,7 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
           <tbody>
             {fiche.ingredients.map((ing, idx) => (
               <tr key={idx}>
-                <td>{ing.name || emptyMark}</td>
+                <td>{ing.displayName || ing.name || emptyMark}</td>
                 <td>{ing.qty || emptyMark}</td>
                 <td>{ing.note || ""}</td>
                 {hasSupplier && <td>{ing.supplier || emptyMark}</td>}
