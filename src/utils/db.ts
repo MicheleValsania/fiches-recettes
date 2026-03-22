@@ -1,6 +1,5 @@
 import type { FicheTechnique } from "../types/fiche";
-
-const API_BASE = "http://localhost:3001/api";
+import { API_BASE } from "./apiBase";
 
 export async function saveFicheToDb(fiche: FicheTechnique) {
   const res = await fetch(`${API_BASE}/fiches`, {

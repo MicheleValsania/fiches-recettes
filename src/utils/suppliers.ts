@@ -1,3 +1,5 @@
+import { API_BASE } from "./apiBase";
+
 export type Supplier = {
   id: string;
   name: string;
@@ -16,8 +18,6 @@ export type SupplierProduct = {
   unit: string | null;
   updatedAt: string;
 };
-
-const API_BASE = "http://localhost:3001/api";
 
 export async function listSuppliers(): Promise<Supplier[]> {
   const res = await fetch(`${API_BASE}/suppliers`);
