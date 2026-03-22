@@ -1,4 +1,4 @@
-import express from "express";
+﻿import express from "express";
 import cors from "cors";
 import pg from "pg";
 import crypto from "node:crypto";
@@ -6,7 +6,25 @@ import crypto from "node:crypto";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors({ origin: "http://localhost:5173" }));
+const allowedOrigins = (
+  process.env.CORS_ALLOWED_ORIGINS ||
+  "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174"
+)
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+  })
+);
 app.use(express.json({ limit: "2mb" }));
 
 const { Pool } = pg;
@@ -81,7 +99,8 @@ await pool.query(`
     ('snack_assiette', 'Assiette', 'snack_bar', 24),
     ('snack_salade_bowl', 'Salade & Bowl', 'snack_bar', 25),
     ('snack_dessert', 'Dessert snack', 'snack_bar', 26),
-    ('snack_petit_dejeuner', 'Petit dejeuner', 'snack_bar', 27)
+    ('snack_petit_dejeuner', 'Petit dejeuner', 'snack_bar', 27),
+    ('snack_patate', 'Patate', 'snack_bar', 28)
   ON CONFLICT (id) DO NOTHING;
 `);
 
@@ -525,3 +544,5 @@ app.delete("/api/suppliers/:id/products/:productId", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`DB server running on http://localhost:${PORT}`);
 });
+
+

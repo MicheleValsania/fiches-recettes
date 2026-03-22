@@ -1,9 +1,9 @@
-# Fiches Recettes
+﻿# Fiches Recettes
 
 App per creare e stampare fiche tecniche con ingredienti, procedura e food cost.  
 Include una libreria fiches, gestione fornitori con listini prezzi e calcolo costi automatico.
 
-## Funzionalità
+## Funzionalità 
 - Editor fiche con anteprima A4 pronta per stampa
 - Import/export JSON e export PDF
 - Autosalvataggio locale
@@ -72,8 +72,8 @@ Scrive anche un log in `backups/backup.log`.
 ### Backup automatico ogni giorno alle 08:00 e 20:00 (Windows Task Scheduler)
 Esegui questi comandi una volta (adatta il percorso se il progetto è altrove):
 ```powershell
-schtasks /Create /F /SC DAILY /ST 08:00 /TN "Fiches Backup 08" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
-schtasks /Create /F /SC DAILY /ST 20:00 /TN "Fiches Backup 20" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\user\fiches-recettes\scripts\backup.ps1"
+schtasks /Create /F /SC DAILY /ST 08:00 /TN "Fiches Backup 08" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\user\chefside\fiches-recettes\scripts\backup.ps1"
+schtasks /Create /F /SC DAILY /ST 20:00 /TN "Fiches Backup 20" /TR "powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\user\chefside\fiches-recettes\scripts\backup.ps1"
 ```
 
 Note:
@@ -81,7 +81,7 @@ Note:
 - Per cambiare retention/frequenza, modifica i parametri `KeepDays` e `Keep` in `scripts/backup.ps1`.
 
 ## Variabili DB (opzionale)
-Il backend legge queste variabili d’ambiente:
+Il backend legge queste variabili dâ€™ambiente:
 ```
 PGHOST=localhost
 PGPORT=5432
@@ -120,21 +120,21 @@ PowerShell:
 Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/reset
 ```
 
-## Flusso prezzi (fornitori ↔ fiche)
+## Flusso prezzi (fornitori â†” fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.
 - Il listino supporta anche prezzo origine e unita origine per riferimento acquisti.
-- Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
+- Inserisci o modifica prezzo/unitÃ  nella fiche: scrive nel listino.
 - Il prezzo viene sempre letto dal listino per il calcolo del costo.
 
 ## Import listini CSV (fornitori + prodotti)
-Nella sezione **Fornitori** usa il bottone **Importa CSV** per caricare uno o piÃ¹ file CSV.
+Nella sezione **Fornitori** usa il bottone **Importa CSV** per caricare uno o piÃƒÂ¹ file CSV.
 Colonne minime richieste: `FOURNISSEUR`, `DESIGNATION`.
 Colonne supportate (opzionali): `CODE FOURNISSEUR`, `PRIX ORIGINE`, `UNITE ORIGINE`, `UNITE`, `PRIX UNIT HT`.
 - Le celle vuote nel CSV non cancellano i dati esistenti in listino (merge non distruttivo).
 - I duplicati dello stesso fornitore vengono sovrascritti con l'ultimo caricato.
 - Prodotti uguali con fornitori diversi vengono mantenuti.
 - Case-insensitive automatico (es. `ATS` -> `ats`).
-- Per somiglianze (es. `tropézienne` vs `les halles tropezienne`) viene chiesta conferma e puoi applicare la scelta a tutto l'import.
+- Per somiglianze (es. `tropÃ©zienne` vs `les halles tropezienne`) viene chiesta conferma e puoi applicare la scelta a tutto l'import.
 
 ## Workflow pratico: IA -> CSV -> fiches tecniche
 Questa prassi e' utile se costruisci o rivedi ricette in ChatGPT/Claude e vuoi importare rapidamente i prodotti nel listino.
@@ -159,7 +159,7 @@ FOURNISSEUR,DESIGNATION,CODE FOURNISSEUR,PRIX ORIGINE,UNITE ORIGINE,UNITE,PRIX U
 Regole:
 - Nessun testo extra prima o dopo il CSV.
 - Usa il punto come separatore decimale.
-- Lascia vuoto il campo se il dato non e' disponibile.
+- Lascia vuoto il campo se il dato non è disponibile.
 - Non inventare codici prodotto.
 ```
 
@@ -197,7 +197,7 @@ powershell -ExecutionPolicy Bypass -File scripts/import-fiches-envelope.ps1 -Pat
 Note:
 - Lo script legge il file in UTF-8 strict.
 - Lo script invia payload come bytes UTF-8 (`charset=utf-8`) verso `/api/fiches`.
-- Se trova testo sospetto (`Ã`, `Â`, `�`) blocca l'import (override con `-AllowSuspectText`).
+- Se trova testo sospetto (`Ãƒ`, `Ã‚`, `ï¿½`) blocca l'import (override con `-AllowSuspectText`).
 
 ## Struttura progetto
 ```
@@ -209,15 +209,15 @@ src/
 ```
 
 ## Note
-- L’app usa Postgres locale (Docker) per salvare fiches e listini.
+- Lâ€™app usa Postgres locale (Docker) per salvare fiches e listini.
 - Per funzionare correttamente, assicurati che il backend sia avviato su `localhost:3001`.
 
 ## Changelog (2026-02-06)
 - Nuova scheda Prodotti con elenco completo e ricerca.
 - Ricerca in libreria fiches, fornitori e prodotti.
 - Migliorie toolbar: comandi fiche solo in editor e menu principale sempre visibile.
-- Import listini CSV multipli con parsing intelligente (fornitore, prodotto, unità, prezzo).
-- Deduplica automatica case-insensitive + alert per nomi simili con scelta “applica a tutti”.
+- Import listini CSV multipli con parsing intelligente (fornitore, prodotto, unitÃ , prezzo).
+- Deduplica automatica case-insensitive + alert per nomi simili con scelta â€œapplica a tuttiâ€.
 - Rinomina fornitori e prodotti con propagazione alle fiche.
 - Eliminazione fornitori con pulizia riferimenti nelle fiche.
 - Script di avvio automatico e backup DB programmato.
@@ -235,5 +235,19 @@ src/
 - Migliorata la paginazione PDF con margini di sicurezza su tutte le pagine (ridotti tagli a fondo pagina su ordini e fiches).
 
 ## Nota operativa
-- L'app e' in uso quotidiano reale (fornitori, prodotti, decine di fiches tecniche).
+- L'app è in uso quotidiano reale (fornitori, prodotti, decine di fiches tecniche).
 - Questo uso continuo copre smoke test pratici su editor, libreria, listini e flussi di export/import.
+
+## Documentazione
+La documentazione strutturata e aggiornata è in `docs/`:
+- `docs/README.md`
+- `docs/00_PRODUCT_SCOPE.md`
+- `docs/01_OPERATIONS_RUNBOOK.md`
+- `docs/02_DATA_MODEL_AND_CONTRACTS.md`
+- `docs/03_ROADMAP.md`
+
+I documenti storici sono in `docs/archive/`.
+
+
+
+

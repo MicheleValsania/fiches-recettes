@@ -39,6 +39,13 @@ type PriceIndex = {
   byProductId: Record<string, PriceMatch>;
   bySupplierKey: Record<string, PriceMatch>;
 };
+type LibrarySort = "updated" | "alphabetical" | "publication";
+type EditorNavContext = {
+  source: "library";
+  ids: string[];
+  index: number;
+  sort: LibrarySort;
+};
 
 function newFiche(): FicheTechnique {
   const now = new Date().toISOString();
@@ -110,6 +117,8 @@ export default function App() {
   const [library, setLibrary] = useState<FicheListItem[]>([]);
   const [libraryQuery, setLibraryQuery] = useState("");
   const [libraryCategoryQuery, setLibraryCategoryQuery] = useState("");
+  const [librarySort, setLibrarySort] = useState<LibrarySort>("updated");
+  const [editorNavContext, setEditorNavContext] = useState<EditorNavContext | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierQuery, setSupplierQuery] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
@@ -156,6 +165,20 @@ export default function App() {
         return;
       }
 
+      if (view === "editor" && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        if (isEditable) return;
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          void onNavigateEditor(-1);
+          return;
+        }
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          void onNavigateEditor(1);
+          return;
+        }
+      }
+
       if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
         if (isEditable) return;
         event.preventDefault();
@@ -168,7 +191,7 @@ export default function App() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [dbBusy, view]);
+  }, [dbBusy, view, editorNavContext, fiche]);
 
   const fileNameBase = useMemo(() => {
     const title = fiche.title?.trim() ? fiche.title.trim() : "fiche-technique";
@@ -265,6 +288,42 @@ export default function App() {
       setFiche(merged);
       lastDbSnapshotRef.current = JSON.stringify(merged);
       setView("editor");
+      setDbStatus(t(lang, "status.ficheLoaded"));
+      return true;
+    } catch {
+      setDbStatus(t(lang, "status.ficheLoadError"));
+      return false;
+    } finally {
+      setDbBusy(false);
+    }
+  }
+
+  async function onSelectFromLibraryOrdered(item: FicheListItem, orderedItems: FicheListItem[], index: number) {
+    const ok = await onSelectFromLibrary(item);
+    if (!ok) return;
+    setEditorNavContext({
+      source: "library",
+      ids: orderedItems.map((x) => x.id),
+      index,
+      sort: librarySort,
+    });
+  }
+
+  async function onNavigateEditor(offset: -1 | 1) {
+    if (!editorNavContext) return;
+    const nextIndex = editorNavContext.index + offset;
+    if (nextIndex < 0 || nextIndex >= editorNavContext.ids.length) return;
+    try {
+      setDbBusy(true);
+      const canLeave = await autoSaveBeforeLeave();
+      if (!canLeave) return;
+      const nextId = editorNavContext.ids[nextIndex];
+      const loaded = await loadFicheFromDb(nextId);
+      const merged = { ...newFiche(), ...loaded, updatedAt: new Date().toISOString() };
+      setFiche(merged);
+      lastDbSnapshotRef.current = JSON.stringify(merged);
+      setView("editor");
+      setEditorNavContext((prev) => (prev ? { ...prev, index: nextIndex } : prev));
       setDbStatus(t(lang, "status.ficheLoaded"));
     } catch {
       setDbStatus(t(lang, "status.ficheLoadError"));
@@ -1202,6 +1261,20 @@ export default function App() {
     });
   }, [library, libraryQuery, libraryCategoryQuery]);
 
+  const orderedLibrary = useMemo(() => {
+    const items = [...filteredLibrary];
+    if (librarySort === "alphabetical") {
+      items.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+      return items;
+    }
+    if (librarySort === "publication") {
+      items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return items;
+    }
+    items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    return items;
+  }, [filteredLibrary, librarySort]);
+
   const libraryTitleOptions = useMemo(() => {
     const titles = new Set<string>();
     for (const item of library) {
@@ -1325,6 +1398,7 @@ export default function App() {
             className={`btn btn-outline nav-btn ${view === "editor" ? "nav-btn--active" : ""}`}
             onClick={() => {
               setFiche(newFiche());
+              setEditorNavContext(null);
               setView("editor");
               setDbStatus("");
             }}
@@ -1361,6 +1435,33 @@ export default function App() {
               <button className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>
                 {t(lang, "app.saveDb")}
               </button>
+              <div className="fiche-nav-group">
+                <button
+                  className="btn btn-outline btn-fiche"
+                  onClick={() => onNavigateEditor(-1)}
+                  disabled={dbBusy || !editorNavContext || editorNavContext.index <= 0}
+                  title={t(lang, "app.prevFiche")}
+                >
+                  ←
+                </button>
+                <button
+                  className="btn btn-outline btn-fiche"
+                  onClick={() => onNavigateEditor(1)}
+                  disabled={
+                    dbBusy ||
+                    !editorNavContext ||
+                    editorNavContext.index >= editorNavContext.ids.length - 1
+                  }
+                  title={t(lang, "app.nextFiche")}
+                >
+                  →
+                </button>
+                {editorNavContext ? (
+                  <span className="fiche-nav-position">
+                    {editorNavContext.index + 1}/{editorNavContext.ids.length}
+                  </span>
+                ) : null}
+              </div>
 
               <button className="btn btn-outline btn-fiche" onClick={() => window.print()}>
                 {t(lang, "app.print")}
@@ -1456,6 +1557,15 @@ export default function App() {
                   value={libraryCategoryQuery}
                   onChange={(e) => setLibraryCategoryQuery(e.target.value)}
                 />
+                <select
+                  className="input"
+                  value={librarySort}
+                  onChange={(e) => setLibrarySort(e.target.value as LibrarySort)}
+                >
+                  <option value="updated">{t(lang, "app.sort.updated")}</option>
+                  <option value="alphabetical">{t(lang, "app.sort.alphabetical")}</option>
+                  <option value="publication">{t(lang, "app.sort.publication")}</option>
+                </select>
                 <datalist id="library-categories">
                   {libraryCategoryOptions.map((category) => (
                     <option key={category} value={category} />
@@ -1481,16 +1591,16 @@ export default function App() {
             </div>
 
             <div className="library-list library-list--index">
-              {filteredLibrary.length === 0 ? (
+              {orderedLibrary.length === 0 ? (
                 <div className="library-empty">
                   {t(lang, "app.noFiches")}
                 </div>
               ) : (
-                filteredLibrary.map((item) => (
+                orderedLibrary.map((item, idx) => (
                   <div key={item.id} className="library-index-row">
                     <button
                       className="library-index-title"
-                      onClick={() => onSelectFromLibrary(item)}
+                      onClick={() => onSelectFromLibraryOrdered(item, orderedLibrary, idx)}
                       disabled={dbBusy}
                     >
                       <div className="library-title">{item.title || t(lang, "app.untitled")}</div>
