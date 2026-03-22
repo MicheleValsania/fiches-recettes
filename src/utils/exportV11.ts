@@ -34,6 +34,7 @@ type ExportFicheV11 = {
   fiche_id: string;
   updated_at: string | null;
   title: string;
+  portions: number | null;
   language: "fr" | "it" | "en";
   category: string | null;
   allergens: string[];
@@ -62,14 +63,31 @@ export type ExportEnvelopeV11 = {
   warnings: ExportWarning[];
 };
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
+const UUID_V4_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuidV4(value: string) {
+  return UUID_V4_REGEX.test(value.trim());
+}
+
+function hash32(input: string, seed: number) {
+  let h = seed >>> 0;
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+function deterministicUuidV4FromText(input: string) {
+  const base = `${input}::fiches-recettes::v11`;
+  const hex = `${hash32(base, 2166136261)}${hash32(base, 2166136261 ^ 0x9e3779b9)}${hash32(base, 2166136261 ^ 0x85ebca6b)}${hash32(base, 2166136261 ^ 0xc2b2ae35)}`.slice(0, 32);
+  const chars = hex.split("");
+  chars[12] = "4";
+  const variant = Number.parseInt(chars[16] || "0", 16);
+  chars[16] = ((variant & 0x3) | 0x8).toString(16);
+  const normalized = chars.join("");
+  return `${normalized.slice(0, 8)}-${normalized.slice(8, 12)}-${normalized.slice(12, 16)}-${normalized.slice(16, 20)}-${normalized.slice(20, 32)}`;
 }
 
 function parseNumberOrNull(value: unknown, path: string, warnings: ExportWarning[]) {
@@ -181,19 +199,28 @@ function mapLabelHints(fiche: FicheTechnique, storageProfiles: ExportStorageProf
 function mapFicheToExportV11(fiche: FicheTechnique, language: Lang, globalWarnings: ExportWarning[]): ExportFicheV11 {
   const warnings: ExportWarning[] = [];
 
-  const ficheIdBase = fiche.id?.trim();
-  const fallbackFicheId = slugify(`${fiche.title || "fiche"}-${fiche.createdAt || fiche.updatedAt || ""}`);
-  const ficheId = ficheIdBase || fallbackFicheId || `fiche-${Date.now()}`;
+  const ficheIdBase = fiche.id?.trim() || "";
+  const fallbackSeed = `${fiche.title || "fiche"}-${fiche.createdAt || fiche.updatedAt || ""}`;
+  let ficheId = ficheIdBase;
   if (!ficheIdBase) {
+    ficheId = deterministicUuidV4FromText(fallbackSeed);
     globalWarnings.push({
       code: "MISSING_FICHE_ID",
       path: "fiche_id",
       message: `Missing fiche id for title '${fiche.title || "(untitled)"}', fallback generated`,
     });
+  } else if (!isUuidV4(ficheIdBase)) {
+    ficheId = deterministicUuidV4FromText(`${ficheIdBase}::${fallbackSeed}`);
+    globalWarnings.push({
+      code: "INVALID_FICHE_ID_NORMALIZED",
+      path: "fiche_id",
+      message: `Non-UUID fiche id normalized for title '${fiche.title || "(untitled)"}'`,
+    });
   }
 
   const storageProfiles = mapStorageProfiles(fiche, warnings);
   const labelHints = mapLabelHints(fiche, storageProfiles, warnings);
+  const portions = parseNumberOrNull(fiche.portions, "portions", warnings);
 
   if (storageProfiles.length === 0) {
     warnings.push({
@@ -207,6 +234,7 @@ function mapFicheToExportV11(fiche: FicheTechnique, language: Lang, globalWarnin
     fiche_id: ficheId,
     updated_at: toIsoUtc(fiche.updatedAt, "updated_at", warnings),
     title: fiche.title || "",
+    portions,
     language,
     category: fiche.category?.trim() || null,
     allergens: fiche.allergens ?? [],
