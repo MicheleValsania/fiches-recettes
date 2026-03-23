@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./App.css";
 import "./print.css";
@@ -35,6 +35,12 @@ import {
 
 const STORAGE_KEY = "fiche-technique:v1";
 const UI_SCALE_STORAGE_KEY = "fiches-recettes:compact-view";
+const AUTH_STORAGE_KEY = "fiches-recettes:auth";
+const APP_PASSWORD = (typeof import.meta !== "undefined" && import.meta.env?.VITE_APP_PASSWORD
+  ? String(import.meta.env.VITE_APP_PASSWORD)
+  : ""
+).trim();
+
 type PriceMatch = { unitPrice: number | null; unit: string | null };
 type PriceIndex = {
   byProductId: Record<string, PriceMatch>;
@@ -89,6 +95,12 @@ export default function App() {
     if (raw === null) return true;
     return raw === "1";
   });
+  const [isAuth, setIsAuth] = useState<boolean>(() => {
+    if (!APP_PASSWORD) return true;
+    return localStorage.getItem(AUTH_STORAGE_KEY) === "1";
+  });
+  const [authInput, setAuthInput] = useState("");
+  const [authError, setAuthError] = useState("");
   const [fiche, setFiche] = useState<FicheTechnique>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -112,6 +124,11 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(UI_SCALE_STORAGE_KEY, compactMode ? "1" : "0");
   }, [compactMode]);
+
+  useEffect(() => {
+    if (!APP_PASSWORD) return;
+    localStorage.setItem(AUTH_STORAGE_KEY, isAuth ? "1" : "0");
+  }, [isAuth]);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -1337,7 +1354,20 @@ export default function App() {
     return unit ? `${value} ${unit}` : String(value);
   };
   const locale = localeByLang[lang];
-  const langFlag: Record<Lang, string> = { it: "🇮🇹", fr: "🇫🇷", en: "🇬🇧" };
+  const langFlag: Record<Lang, string> = { it: "IT", fr: "FR", en: "EN" };
+
+  const requiresAuth = APP_PASSWORD.length > 0;
+
+  const onSubmitAuth = (event: FormEvent) => {
+    event.preventDefault();
+    if (!requiresAuth) return;
+    if (authInput === APP_PASSWORD) {
+      setIsAuth(true);
+      setAuthError("");
+      return;
+    }
+    setAuthError(t(lang, "auth.invalidPassword"));
+  };
 
   const ficheHasContent = (data: FicheTechnique) => {
     if (data.title.trim() || data.category?.trim() || data.notes?.trim()) return true;
@@ -1379,12 +1409,38 @@ export default function App() {
       return false;
     }
   };
+  if (!isAuth) {
+    return (
+      <div className="auth-screen">
+        <div className="auth-card">
+          <div className="auth-title">{t(lang, "auth.title")}</div>
+          <div className="auth-subtitle">{t(lang, "auth.subtitle")}</div>
+          <form className="auth-form" onSubmit={onSubmitAuth}>
+            <input
+              className="input auth-input"
+              type="password"
+              value={authInput}
+              onChange={(e) => {
+                setAuthInput(e.target.value);
+                if (authError) setAuthError("");
+              }}
+              placeholder={t(lang, "auth.placeholder")}
+            />
+            <button className="btn btn-primary auth-button" type="submit">
+              {t(lang, "auth.submit")}
+            </button>
+          </form>
+          {authError ? <div className="auth-error">{authError}</div> : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`app ${compactMode ? "app--compact" : ""}`}>
       <div className="app-scale">
         <header className="topbar no-print">
-        <div className="topbar-head">
+          <div className="topbar-head">
           <div className="topbar-spacer" aria-hidden="true" />
           <div className="brand">
             <img className="brand-logo-image" src="/chefside-logo.svg" alt="Chef Side" />

@@ -87,6 +87,57 @@
   justify-self: end;
 }
 
+.auth-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(135deg, rgba(255, 247, 235, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.auth-card {
+  width: min(420px, 92vw);
+  background: white;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.12);
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+.auth-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.auth-subtitle {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.auth-form {
+  display: grid;
+  gap: 12px;
+}
+
+.auth-input {
+  height: 44px;
+  font-size: 15px;
+}
+
+.auth-button {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+.auth-error {
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .compact-toggle {
   min-height: 38px;
   padding: 8px 14px;
