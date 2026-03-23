@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";\r\nimport type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./App.css";
 import "./print.css";
