@@ -2,6 +2,28 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  --ui-scale: 1;
+}
+
+.app--compact {
+  --ui-scale: 0.67;
+}
+
+.app-scale {
+  transform-origin: top center;
+}
+
+@supports (zoom: 1) {
+  .app-scale {
+    zoom: var(--ui-scale);
+  }
+}
+
+@supports not (zoom: 1) {
+  .app-scale {
+    transform: scale(var(--ui-scale));
+    width: calc(100% / var(--ui-scale));
+  }
 }
 
 .topbar {
@@ -56,6 +78,26 @@
   align-items: center;
   gap: 8px;
   justify-self: end;
+}
+
+.topbar-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
+}
+
+.compact-toggle {
+  min-height: 38px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.compact-toggle--active {
+  background: #111827;
+  border-color: #111827;
+  color: white;
 }
 
 .lang-flag {

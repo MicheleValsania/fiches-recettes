@@ -15,6 +15,12 @@
     print-color-adjust: exact;
   }
 
+  .app-scale {
+    transform: none !important;
+    zoom: 1 !important;
+    width: auto !important;
+  }
+
   .sheet {
     width: 210mm;
     min-height: 297mm;

@@ -34,6 +34,7 @@ import {
 } from "./utils/suppliers";
 
 const STORAGE_KEY = "fiche-technique:v1";
+const UI_SCALE_STORAGE_KEY = "fiches-recettes:compact-view";
 type PriceMatch = { unitPrice: number | null; unit: string | null };
 type PriceIndex = {
   byProductId: Record<string, PriceMatch>;
@@ -83,6 +84,11 @@ function newFiche(): FicheTechnique {
 
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => getInitialLang());
+  const [compactMode, setCompactMode] = useState<boolean>(() => {
+    const raw = localStorage.getItem(UI_SCALE_STORAGE_KEY);
+    if (raw === null) return true;
+    return raw === "1";
+  });
   const [fiche, setFiche] = useState<FicheTechnique>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -102,6 +108,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(LANG_STORAGE_KEY, lang);
   }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem(UI_SCALE_STORAGE_KEY, compactMode ? "1" : "0");
+  }, [compactMode]);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -1371,25 +1381,36 @@ export default function App() {
   };
 
   return (
-    <div className="app">
-      <header className="topbar no-print">
+    <div className={`app ${compactMode ? "app--compact" : ""}`}>
+      <div className="app-scale">
+        <header className="topbar no-print">
         <div className="topbar-head">
           <div className="topbar-spacer" aria-hidden="true" />
           <div className="brand">
             <img className="brand-logo-image" src="/chefside-logo.svg" alt="Chef Side" />
           </div>
-          <div className="lang-switch">
-            <span className="lang-flag" aria-hidden="true">{langFlag[lang]}</span>
-            <select
-              className="input lang-select"
-              value={lang}
-              aria-label="Language"
-              onChange={(e) => setLang(e.target.value as Lang)}
+          <div className="topbar-controls">
+            <button
+              className={`btn btn-outline compact-toggle ${compactMode ? "compact-toggle--active" : ""}`}
+              aria-pressed={compactMode}
+              onClick={() => setCompactMode((prev) => !prev)}
+              title={compactMode ? t(lang, "app.compactOn") : t(lang, "app.compactOff")}
             >
-              <option value="en">English</option>
-              <option value="fr">FranÃ§ais</option>
-              <option value="it">Italiano</option>
-            </select>
+              {compactMode ? t(lang, "app.compactOn") : t(lang, "app.compactOff")}
+            </button>
+            <div className="lang-switch">
+              <span className="lang-flag" aria-hidden="true">{langFlag[lang]}</span>
+              <select
+                className="input lang-select"
+                value={lang}
+                aria-label="Language"
+                onChange={(e) => setLang(e.target.value as Lang)}
+              >
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="it">Italiano</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -2067,6 +2088,7 @@ export default function App() {
           </section>
         )}
       </main>
+    </div>
     </div>
   );
 }
