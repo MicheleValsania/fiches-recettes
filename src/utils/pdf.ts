@@ -17,7 +17,7 @@ type SupplierOrderPdfRow = {
 export async function renderElementToA4PdfBlob(element: HTMLElement): Promise<Blob> {
   const root = document.documentElement;
   const prevPdfScale = root.style.getPropertyValue("--pdf-ui-scale");
-  root.style.setProperty("--pdf-ui-scale", "0.85");
+  root.style.setProperty("--pdf-ui-scale", "0.75");
   root.classList.add("pdf-exporting");
   try {
     const canvas = await html2canvas(element, {
