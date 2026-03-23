@@ -27,7 +27,7 @@
 }
 
 .pdf-exporting .app--compact {
-  --ui-scale: 1;
+  --ui-scale: var(--pdf-ui-scale, 0.85);
 }
 
 .pdf-exporting .app-scale {
