@@ -565,7 +565,7 @@ export default function App() {
   const readFileText = async (file: File) => {
     const buffer = await file.arrayBuffer();
     const utf8 = new TextDecoder("utf-8").decode(buffer);
-    if (/Ã.|â‚¬/.test(utf8)) {
+    if (/Ãƒ.|Ã¢â€šÂ¬/.test(utf8)) {
       try {
         return new TextDecoder("windows-1252").decode(buffer);
       } catch {
@@ -1463,7 +1463,7 @@ export default function App() {
                 onChange={(e) => setLang(e.target.value as Lang)}
               >
                 <option value="en">English</option>
-                <option value="fr">Fran�ais</option>
+                <option value="fr">Français</option>
                 <option value="it">Italiano</option>
               </select>
             </div>
@@ -1519,7 +1519,7 @@ export default function App() {
                   disabled={dbBusy || !editorNavContext || editorNavContext.index <= 0}
                   title={t(lang, "app.prevFiche")}
                 >
-                  ←
+                  â†
                 </button>
                 <button
                   className="btn btn-outline btn-fiche"
@@ -1531,7 +1531,7 @@ export default function App() {
                   }
                   title={t(lang, "app.nextFiche")}
                 >
-                  →
+                  â†’
                 </button>
                 {editorNavContext ? (
                   <span className="fiche-nav-position">
@@ -1907,12 +1907,12 @@ export default function App() {
                 onChange={(e) => setNewProductSourceUnit(e.target.value)}
               >
                 <option value="">{t(lang, "app.originalUnitLabel")}</option>
-                <option value="kg">€/kg</option>
-                <option value="g">€/g</option>
-                <option value="l">€/l</option>
-                <option value="ml">€/ml</option>
-                <option value="cl">€/cl</option>
-                <option value="pc">€/pz</option>
+                <option value="kg">â‚¬/kg</option>
+                <option value="g">â‚¬/g</option>
+                <option value="l">â‚¬/l</option>
+                <option value="ml">â‚¬/ml</option>
+                <option value="cl">â‚¬/cl</option>
+                <option value="pc">â‚¬/pz</option>
               </select>
               <input
                 className="input input-price"
@@ -1929,12 +1929,12 @@ export default function App() {
                 onChange={(e) => setNewProductUnit(e.target.value)}
               >
                 <option value="">{t(lang, "app.unitLabel")}</option>
-                <option value="kg">€/kg</option>
-                <option value="g">€/g</option>
-                <option value="l">€/l</option>
-                <option value="ml">€/ml</option>
-                <option value="cl">€/cl</option>
-                <option value="pc">€/pz</option>
+                <option value="kg">â‚¬/kg</option>
+                <option value="g">â‚¬/g</option>
+                <option value="l">â‚¬/l</option>
+                <option value="ml">â‚¬/ml</option>
+                <option value="cl">â‚¬/cl</option>
+                <option value="pc">â‚¬/pz</option>
               </select>
               <button className="btn btn-primary supplier-add-btn" onClick={onAddSupplierProduct} disabled={dbBusy}>
                 {t(lang, "app.addProduct")}
@@ -2050,12 +2050,12 @@ export default function App() {
                         }}
                       >
                         <option value="">{t(lang, "app.originalUnitLabel")}</option>
-                        <option value="kg">€/kg</option>
-                        <option value="g">€/g</option>
-                        <option value="l">€/l</option>
-                        <option value="ml">€/ml</option>
-                        <option value="cl">€/cl</option>
-                        <option value="pc">€/pz</option>
+                        <option value="kg">â‚¬/kg</option>
+                        <option value="g">â‚¬/g</option>
+                        <option value="l">â‚¬/l</option>
+                        <option value="ml">â‚¬/ml</option>
+                        <option value="cl">â‚¬/cl</option>
+                        <option value="pc">â‚¬/pz</option>
                       </select>
                       <input
                         className="input input-price"
@@ -2114,12 +2114,12 @@ export default function App() {
                         }}
                       >
                         <option value="">{t(lang, "app.unitLabel")}</option>
-                        <option value="kg">€/kg</option>
-                        <option value="g">€/g</option>
-                        <option value="l">€/l</option>
-                        <option value="ml">€/ml</option>
-                        <option value="cl">€/cl</option>
-                        <option value="pc">€/pz</option>
+                        <option value="kg">â‚¬/kg</option>
+                        <option value="g">â‚¬/g</option>
+                        <option value="l">â‚¬/l</option>
+                        <option value="ml">â‚¬/ml</option>
+                        <option value="cl">â‚¬/cl</option>
+                        <option value="pc">â‚¬/pz</option>
                       </select>
                       <button
                         className="btn btn-outline"
