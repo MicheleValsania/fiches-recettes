@@ -26,6 +26,16 @@
   }
 }
 
+.pdf-exporting .app--compact {
+  --ui-scale: 1;
+}
+
+.pdf-exporting .app-scale {
+  transform: none !important;
+  zoom: 1 !important;
+  width: auto !important;
+}
+
 .topbar {
   position: sticky;
   top: 0;
