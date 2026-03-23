@@ -21,7 +21,7 @@ export async function renderElementToA4PdfBlob(element: HTMLElement): Promise<Bl
   root.classList.add("pdf-exporting");
   try {
     const canvas = await html2canvas(element, {
-      scale: 2,
+      scale: 3,
       useCORS: true,
       backgroundColor: "#ffffff",
     });
