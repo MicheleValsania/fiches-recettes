@@ -6,6 +6,7 @@ export type IngredientLine = {
   supplier?: string;
   supplierId?: string;
   supplierProductId?: string;
+  supplierCode?: string;
   unitPrice?: number;
   unitPriceUnit?: "kg" | "g" | "l" | "ml" | "cl" | "pc";
 };

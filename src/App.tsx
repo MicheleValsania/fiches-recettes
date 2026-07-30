@@ -42,7 +42,7 @@ const APP_PASSWORD = (typeof import.meta !== "undefined" && import.meta.env?.VIT
   : ""
 ).trim();
 
-type PriceMatch = { unitPrice: number | null; unit: string | null };
+type PriceMatch = { unitPrice: number | null; unit: string | null; supplierCode: string | null };
 type PriceIndex = {
   byProductId: Record<string, PriceMatch>;
   bySupplierKey: Record<string, PriceMatch>;
@@ -416,6 +416,7 @@ export default function App() {
               ...ing,
               unitPrice: ing.unitPrice ?? match.unitPrice ?? undefined,
               unitPriceUnit: ing.unitPriceUnit ?? normalizeExportUnit(match.unit),
+              supplierCode: ing.supplierCode ?? match.supplierCode ?? undefined,
             };
           });
           return { ...entry, ingredients };
@@ -869,7 +870,11 @@ export default function App() {
       const supplier = suppliersList.find((s) => s.id === id);
       const products = await listSupplierProducts(id);
       for (const p of products) {
-        const info = { unitPrice: p.unitPrice == null ? null : Number(p.unitPrice), unit: p.unit ?? null };
+        const info = {
+          unitPrice: p.unitPrice == null ? null : Number(p.unitPrice),
+          unit: p.unit ?? null,
+          supplierCode: p.supplierCode ?? null,
+        };
         byProductId[p.id] = info;
         bySupplierKey[`${id}::${normalize(p.name)}`] = info;
         if (supplier) {

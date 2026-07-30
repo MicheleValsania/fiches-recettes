@@ -45,6 +45,7 @@ type ExportFicheV11 = {
     supplier_name: string | null;
     supplier_id: string | null;
     supplier_product_id: string | null;
+    supplier_code: string | null;
     unit_price_value: number | null;
     unit_price_unit: string | null;
   }>;
@@ -245,6 +246,7 @@ function mapFicheToExportV11(fiche: FicheTechnique, language: Lang, globalWarnin
       supplier_name: ingredient.supplier?.trim() || null,
       supplier_id: ingredient.supplierId || null,
       supplier_product_id: ingredient.supplierProductId || null,
+      supplier_code: ingredient.supplierCode?.trim() || null,
       unit_price_value: ingredient.unitPrice ?? null,
       unit_price_unit: ingredient.unitPriceUnit ?? null,
     })),
