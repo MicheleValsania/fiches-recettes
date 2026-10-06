@@ -110,7 +110,7 @@ PORT=3001
 Nota: con l'assetto attuale l'app e il DB sono locali su `localhost`, quindi single-user.
 
 ## Reset DB (per test)
-Il reset e disabilitato per impostazione predefinita. Per abilitarlo temporaneamente servono entrambe le variabili server `ALLOW_DB_RESET=true` e `DB_RESET_TOKEN`.
+Il reset e disabilitato per impostazione predefinita e la route non viene registrata. Per abilitarlo temporaneamente servono entrambe le variabili server `ALLOW_DB_RESET=true` e `DB_RESET_TOKEN`.
 
 Endpoint backend:
 ```
@@ -133,7 +133,9 @@ In produzione il backend richiede:
 - `FICHES_SERVICE_TOKEN`: segreto separato per le richieste server-to-server provenienti da CookOps.
 - `CORS_ALLOWED_ORIGINS`: origini frontend autorizzate, separate da virgola.
 
-Il browser conserva soltanto il token temporaneo in `sessionStorage`; la password non viene salvata. In locale, se `APP_PASSWORD` non e impostata, l'API resta aperta per facilitare lo sviluppo. Su Railway il server rifiuta invece di avviarsi se i segreti obbligatori non sono configurati.
+Il browser conserva soltanto il token temporaneo in `sessionStorage`; la password non viene salvata. Il server rifiuta sempre di avviarsi senza i segreti obbligatori. Per lo sviluppo locale senza autenticazione bisogna impostare esplicitamente `AUTH_DISABLED=true`.
+
+Il rate limiting del login e conservato in memoria ed e adeguato all'attuale singola istanza Railway. Prima di aumentare il numero di repliche va spostato su uno storage condiviso, per esempio Redis.
 
 CookOps deve usare lo stesso valore del token di servizio nella propria variabile `FICHES_API_SERVICE_TOKEN`.
 
