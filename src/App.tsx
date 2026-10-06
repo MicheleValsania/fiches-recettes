@@ -12,6 +12,7 @@ import { downloadBlob, downloadJson, readJsonFile, safeFilename } from "./utils/
 import { buildExportEnvelopeV11 } from "./utils/exportV11";
 import { exportElementToA4Pdf, exportSupplierOrderListPdf, renderElementToA4PdfBlob } from "./utils/pdf";
 import { createZipBlob } from "./utils/zip";
+import { API_AUTH_EXPIRED_EVENT, checkApiAccess, loginApi } from "./utils/apiBase";
 import {
   deleteFicheFromDb,
   listFichesFromDb,
@@ -36,11 +37,6 @@ import {
 
 const STORAGE_KEY = "fiche-technique:v1";
 const UI_SCALE_STORAGE_KEY = "fiches-recettes:compact-view";
-const AUTH_STORAGE_KEY = "fiches-recettes:auth";
-const APP_PASSWORD = (typeof import.meta !== "undefined" && import.meta.env?.VITE_APP_PASSWORD
-  ? String(import.meta.env.VITE_APP_PASSWORD)
-  : ""
-).trim();
 
 type PriceMatch = { unitPrice: number | null; unit: string | null; supplierCode: string | null };
 type PriceIndex = {
@@ -96,10 +92,7 @@ export default function App() {
     if (raw === null) return true;
     return raw === "1";
   });
-  const [isAuth, setIsAuth] = useState<boolean>(() => {
-    if (!APP_PASSWORD) return true;
-    return localStorage.getItem(AUTH_STORAGE_KEY) === "1";
-  });
+  const [authState, setAuthState] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
   const [authInput, setAuthInput] = useState("");
   const [authError, setAuthError] = useState("");
   const [fiche, setFiche] = useState<FicheTechnique>(() => {
@@ -127,9 +120,28 @@ export default function App() {
   }, [compactMode]);
 
   useEffect(() => {
-    if (!APP_PASSWORD) return;
-    localStorage.setItem(AUTH_STORAGE_KEY, isAuth ? "1" : "0");
-  }, [isAuth]);
+    let active = true;
+    void checkApiAccess().then((result) => {
+      if (!active) return;
+      if (result === "ok") {
+        setAuthState("authenticated");
+        setAuthError("");
+      } else {
+        setAuthState("unauthenticated");
+        if (result === "offline") setAuthError(t(lang, "auth.offline"));
+      }
+    });
+
+    const handleExpiredSession = () => {
+      setAuthState("unauthenticated");
+      setAuthError(t(lang, "auth.sessionExpired"));
+    };
+    window.addEventListener(API_AUTH_EXPIRED_EVENT, handleExpiredSession);
+    return () => {
+      active = false;
+      window.removeEventListener(API_AUTH_EXPIRED_EVENT, handleExpiredSession);
+    };
+  }, [lang]);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -1362,17 +1374,17 @@ export default function App() {
   const locale = localeByLang[lang];
   const langFlag: Record<Lang, string> = { it: "IT", fr: "FR", en: "EN" };
 
-  const requiresAuth = APP_PASSWORD.length > 0;
-
-  const onSubmitAuth = (event: FormEvent) => {
+  const onSubmitAuth = async (event: FormEvent) => {
     event.preventDefault();
-    if (!requiresAuth) return;
-    if (authInput === APP_PASSWORD) {
-      setIsAuth(true);
+    setAuthError("");
+    const result = await loginApi(authInput);
+    if (result === "ok") {
+      setAuthState("authenticated");
       setAuthError("");
+      window.location.reload();
       return;
     }
-    setAuthError(t(lang, "auth.invalidPassword"));
+    setAuthError(t(lang, result === "offline" ? "auth.offline" : "auth.invalidPassword"));
   };
 
   const ficheHasContent = (data: FicheTechnique) => {
@@ -1415,27 +1427,32 @@ export default function App() {
       return false;
     }
   };
-  if (!isAuth) {
+  if (authState !== "authenticated") {
     return (
       <div className="auth-screen">
         <div className="auth-card">
           <div className="auth-title">{t(lang, "auth.title")}</div>
-          <div className="auth-subtitle">{t(lang, "auth.subtitle")}</div>
-          <form className="auth-form" onSubmit={onSubmitAuth}>
-            <input
-              className="input auth-input"
-              type="password"
-              value={authInput}
-              onChange={(e) => {
-                setAuthInput(e.target.value);
-                if (authError) setAuthError("");
-              }}
-              placeholder={t(lang, "auth.placeholder")}
-            />
-            <button className="btn btn-primary auth-button" type="submit">
-              {t(lang, "auth.submit")}
-            </button>
-          </form>
+          <div className="auth-subtitle">
+            {t(lang, authState === "checking" ? "auth.checking" : "auth.subtitle")}
+          </div>
+          {authState === "unauthenticated" ? (
+            <form className="auth-form" onSubmit={onSubmitAuth}>
+              <input
+                className="input auth-input"
+                type="password"
+                autoComplete="current-password"
+                value={authInput}
+                onChange={(e) => {
+                  setAuthInput(e.target.value);
+                  if (authError) setAuthError("");
+                }}
+                placeholder={t(lang, "auth.placeholder")}
+              />
+              <button className="btn btn-primary auth-button" type="submit">
+                {t(lang, "auth.submit")}
+              </button>
+            </form>
+          ) : null}
           {authError ? <div className="auth-error">{authError}</div> : null}
         </div>
       </div>

@@ -110,6 +110,8 @@ PORT=3001
 Nota: con l'assetto attuale l'app e il DB sono locali su `localhost`, quindi single-user.
 
 ## Reset DB (per test)
+Il reset e disabilitato per impostazione predefinita. Per abilitarlo temporaneamente servono entrambe le variabili server `ALLOW_DB_RESET=true` e `DB_RESET_TOKEN`.
+
 Endpoint backend:
 ```
 POST /api/reset
@@ -119,6 +121,21 @@ PowerShell:
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://localhost:3001/api/reset
 ```
+
+Con protezione attiva, aggiungi gli header `Authorization: Bearer <session-token>` e `X-Reset-Token: <DB_RESET_TOKEN>`. Non abilitare il reset in produzione durante il normale utilizzo.
+
+## Autenticazione API
+
+In produzione il backend richiede:
+
+- `APP_PASSWORD`: password inserita dall'utente nella schermata di accesso; non viene inclusa nel bundle frontend.
+- `AUTH_TOKEN_SECRET`: segreto casuale usato per firmare sessioni temporanee (8 ore per impostazione predefinita).
+- `FICHES_SERVICE_TOKEN`: segreto separato per le richieste server-to-server provenienti da CookOps.
+- `CORS_ALLOWED_ORIGINS`: origini frontend autorizzate, separate da virgola.
+
+Il browser conserva soltanto il token temporaneo in `sessionStorage`; la password non viene salvata. In locale, se `APP_PASSWORD` non e impostata, l'API resta aperta per facilitare lo sviluppo. Su Railway il server rifiuta invece di avviarsi se i segreti obbligatori non sono configurati.
+
+CookOps deve usare lo stesso valore del token di servizio nella propria variabile `FICHES_API_SERVICE_TOKEN`.
 
 ## Flusso prezzi (fornitori â†” fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.

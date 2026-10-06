@@ -1,5 +1,13 @@
 const API_BASE = process.env.API_BASE || "http://localhost:3001/api";
+const SERVICE_TOKEN = (process.env.FICHES_SERVICE_TOKEN || "").trim();
 const APPLY = process.argv.includes("--apply");
+
+function apiHeaders(extra = {}) {
+  return {
+    ...extra,
+    ...(SERVICE_TOKEN ? { "X-Service-Token": SERVICE_TOKEN } : {}),
+  };
+}
 
 function normalize(value) {
   return String(value || "")
@@ -107,7 +115,7 @@ function inferCategoryFromText(data, byId) {
 }
 
 async function fetchJson(path) {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${API_BASE}${path}`, { headers: apiHeaders() });
   if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
   return res.json();
 }
@@ -180,7 +188,7 @@ async function main() {
     };
     const res = await fetch(`${API_BASE}/fiches`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: apiHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(payload),
     });
     if (!res.ok) {

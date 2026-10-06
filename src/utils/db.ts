@@ -1,8 +1,8 @@
 import type { FicheTechnique } from "../types/fiche";
-import { API_BASE } from "./apiBase";
+import { API_BASE, apiFetch } from "./apiBase";
 
 export async function saveFicheToDb(fiche: FicheTechnique) {
-  const res = await fetch(`${API_BASE}/fiches`, {
+  const res = await apiFetch(`${API_BASE}/fiches`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fiche),
@@ -11,7 +11,7 @@ export async function saveFicheToDb(fiche: FicheTechnique) {
 }
 
 export async function loadFicheFromDb(id: string): Promise<FicheTechnique> {
-  const res = await fetch(`${API_BASE}/fiches/${id}`);
+  const res = await apiFetch(`${API_BASE}/fiches/${id}`);
   if (!res.ok) throw new Error("Fiche non trovata");
   return res.json();
 }
@@ -32,19 +32,19 @@ export type CategoryListItem = {
 };
 
 export async function listFichesFromDb(): Promise<FicheListItem[]> {
-  const res = await fetch(`${API_BASE}/fiches`);
+  const res = await apiFetch(`${API_BASE}/fiches`);
   if (!res.ok) throw new Error("Errore lista fiches");
   return res.json();
 }
 
 export async function deleteFicheFromDb(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/fiches/${id}`, { method: "DELETE" });
+  const res = await apiFetch(`${API_BASE}/fiches/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Errore eliminazione fiche");
 }
 
 export async function listCategories(): Promise<CategoryListItem[]> {
   try {
-    const res = await fetch(`${API_BASE}/categories`);
+    const res = await apiFetch(`${API_BASE}/categories`);
     if (!res.ok) return [];
     return res.json();
   } catch {

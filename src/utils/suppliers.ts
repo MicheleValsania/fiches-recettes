@@ -1,4 +1,4 @@
-import { API_BASE } from "./apiBase";
+import { API_BASE, apiFetch } from "./apiBase";
 
 export type Supplier = {
   id: string;
@@ -20,13 +20,13 @@ export type SupplierProduct = {
 };
 
 export async function listSuppliers(): Promise<Supplier[]> {
-  const res = await fetch(`${API_BASE}/suppliers`);
+  const res = await apiFetch(`${API_BASE}/suppliers`);
   if (!res.ok) throw new Error("Errore lista fornitori");
   return res.json();
 }
 
 export async function upsertSupplier(name: string): Promise<Supplier> {
-  const res = await fetch(`${API_BASE}/suppliers`, {
+  const res = await apiFetch(`${API_BASE}/suppliers`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -36,7 +36,7 @@ export async function upsertSupplier(name: string): Promise<Supplier> {
 }
 
 export async function listSupplierProducts(supplierId: string): Promise<SupplierProduct[]> {
-  const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products`);
+  const res = await apiFetch(`${API_BASE}/suppliers/${supplierId}/products`);
   if (!res.ok) throw new Error("Errore lista prodotti fornitore");
   return res.json();
 }
@@ -50,7 +50,7 @@ export async function upsertSupplierProduct(
   unitPrice: number | null,
   unit: string | null
 ): Promise<SupplierProduct> {
-  const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products`, {
+  const res = await apiFetch(`${API_BASE}/suppliers/${supplierId}/products`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, supplierCode, sourcePrice, sourceUnit, unitPrice, unit }),
@@ -68,7 +68,7 @@ export async function updateSupplierProduct(
   unitPrice: number | null,
   unit: string | null
 ): Promise<SupplierProduct> {
-  const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}`, {
+  const res = await apiFetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ supplierCode, sourcePrice, sourceUnit, unitPrice, unit }),
@@ -78,7 +78,7 @@ export async function updateSupplierProduct(
 }
 
 export async function renameSupplier(supplierId: string, name: string): Promise<Supplier> {
-  const res = await fetch(`${API_BASE}/suppliers/${supplierId}`, {
+  const res = await apiFetch(`${API_BASE}/suppliers/${supplierId}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -93,7 +93,7 @@ export async function renameSupplierProduct(
   productId: string,
   name: string
 ): Promise<SupplierProduct> {
-  const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}/name`, {
+  const res = await apiFetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}/name`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name }),
@@ -104,14 +104,14 @@ export async function renameSupplierProduct(
 }
 
 export async function deleteSupplier(supplierId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/suppliers/${supplierId}`, {
+  const res = await apiFetch(`${API_BASE}/suppliers/${supplierId}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("Errore eliminazione fornitore");
 }
 
 export async function deleteSupplierProduct(supplierId: string, productId: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}`, {
+  const res = await apiFetch(`${API_BASE}/suppliers/${supplierId}/products/${productId}`, {
     method: "DELETE",
   });
   if (!res.ok) throw new Error("Errore eliminazione prodotto");

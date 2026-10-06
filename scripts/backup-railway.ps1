@@ -67,6 +67,9 @@ try {
 
   Write-Log "INFO" "Checking Docker..."
   docker info | Out-Null
+  if ($LASTEXITCODE -ne 0) {
+    throw "Docker Desktop is not running or is not reachable."
+  }
 
   $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
   $filePath = Join-Path $OutDir "railway-$timestamp.dump"

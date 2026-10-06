@@ -13,6 +13,7 @@
     "backup:railway": "powershell -ExecutionPolicy Bypass -File scripts/backup-railway.ps1",
     "categories:assign:dry": "node scripts/assign-categories.mjs",
     "categories:assign": "node scripts/assign-categories.mjs --apply",
+    "test:server": "node --test server/auth.test.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

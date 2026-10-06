@@ -2,9 +2,42 @@
 import cors from "cors";
 import pg from "pg";
 import crypto from "node:crypto";
+import { createAuth, createLoginAttemptTracker, safeEqual } from "./auth.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const isProduction =
+  process.env.NODE_ENV === "production" ||
+  Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME);
+const appPassword = (process.env.APP_PASSWORD || "").trim();
+const authTokenSecret = (process.env.AUTH_TOKEN_SECRET || "").trim();
+const serviceToken = (process.env.FICHES_SERVICE_TOKEN || "").trim();
+const allowDbReset = process.env.ALLOW_DB_RESET === "true";
+const dbResetToken = (process.env.DB_RESET_TOKEN || "").trim();
+const requestedTokenTtl = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 8 * 60 * 60);
+const tokenTtlSeconds = Number.isFinite(requestedTokenTtl) && requestedTokenTtl > 0
+  ? requestedTokenTtl
+  : 8 * 60 * 60;
+
+if (isProduction && !appPassword) {
+  throw new Error("APP_PASSWORD is required in production.");
+}
+if (isProduction && !serviceToken) {
+  throw new Error("FICHES_SERVICE_TOKEN is required in production.");
+}
+if (allowDbReset && !dbResetToken) {
+  throw new Error("DB_RESET_TOKEN is required when ALLOW_DB_RESET=true.");
+}
+
+const auth = createAuth({
+  password: appPassword,
+  tokenSecret: authTokenSecret,
+  serviceToken,
+  tokenTtlSeconds,
+});
+const loginAttempts = createLoginAttemptTracker();
+
+app.set("trust proxy", 1);
 
 const allowedOrigins = (
   process.env.CORS_ALLOWED_ORIGINS ||
@@ -23,9 +56,61 @@ app.use(
       }
       callback(new Error(`CORS blocked for origin: ${origin}`));
     },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Service-Token", "X-Reset-Token"],
   })
 );
 app.use(express.json({ limit: "2mb" }));
+app.use((_req, res, next) => {
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("X-Frame-Options", "DENY");
+  res.set("Referrer-Policy", "no-referrer");
+  next();
+});
+
+app.get("/api/auth/status", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    authRequired: auth.authRequired,
+    authenticated: auth.requestIsAuthorized(req),
+  });
+});
+
+app.post("/api/auth/login", (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (!auth.authRequired) {
+    res.json({ ok: true, authRequired: false, token: null, expiresAt: null });
+    return;
+  }
+
+  const clientKey = req.ip || req.socket.remoteAddress || "unknown";
+  const block = loginAttempts.isBlocked(clientKey);
+  if (block.blocked) {
+    res.set("Retry-After", String(block.retryAfterSeconds));
+    res.status(429).json({ ok: false, error: "too_many_attempts" });
+    return;
+  }
+
+  if (!auth.passwordMatches(req.body?.password)) {
+    loginAttempts.recordFailure(clientKey);
+    res.status(401).json({ ok: false, error: "unauthorized" });
+    return;
+  }
+
+  loginAttempts.reset(clientKey);
+  const session = auth.issueSessionToken();
+  res.json({ ok: true, authRequired: true, ...session });
+});
+
+app.use("/api", (req, res, next) => {
+  if (req.path === "/health" || auth.requestIsAuthorized(req)) {
+    next();
+    return;
+  }
+  res.set("Cache-Control", "no-store");
+  res.status(401).json({ ok: false, error: "unauthorized" });
+});
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -188,6 +273,15 @@ app.delete("/api/fiches/:id", async (req, res) => {
 });
 
 app.post("/api/reset", async (_req, res) => {
+  if (!allowDbReset) {
+    res.status(403).json({ ok: false, error: "reset_disabled" });
+    return;
+  }
+  const providedResetToken = _req.get("x-reset-token") || "";
+  if (!providedResetToken || !safeEqual(providedResetToken, dbResetToken)) {
+    res.status(403).json({ ok: false, error: "reset_forbidden" });
+    return;
+  }
   try {
     await pool.query("TRUNCATE TABLE fiches, supplier_products, suppliers RESTART IDENTITY CASCADE");
     res.json({ ok: true });
