@@ -9,6 +9,7 @@ export function safeEqual(left, right) {
 }
 
 export function createAuth({
+  enabled,
   password = "",
   tokenSecret = "",
   serviceToken = "",
@@ -20,10 +21,10 @@ export function createAuth({
   const normalizedTokenSecret = String(tokenSecret).trim();
   const normalizedServiceToken = String(serviceToken).trim();
   const normalizedTenantId = String(tenantId).trim();
-  const authRequired = normalizedPassword.length > 0;
+  const authRequired = enabled ?? normalizedPassword.length > 0;
 
   if (authRequired && !normalizedTokenSecret) {
-    throw new Error("AUTH_TOKEN_SECRET is required when APP_PASSWORD is configured.");
+    throw new Error("AUTH_TOKEN_SECRET is required when authentication is enabled.");
   }
   if (!normalizedTenantId) {
     throw new Error("A tenantId is required for every authentication context.");
@@ -79,7 +80,7 @@ export function createAuth({
   }
 
   function passwordMatches(candidate) {
-    return authRequired && safeEqual(candidate || "", normalizedPassword);
+    return authRequired && Boolean(normalizedPassword) && safeEqual(candidate || "", normalizedPassword);
   }
 
   function requestAuth(req) {

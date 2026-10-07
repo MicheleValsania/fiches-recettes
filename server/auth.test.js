@@ -59,6 +59,19 @@ test("browser sessions and service tokens authorize independently", () => {
   );
 });
 
+test("personal authentication remains active without a legacy password", () => {
+  const auth = createAuth({
+    enabled: true,
+    tokenSecret: "signing-secret",
+    tenantId: "tenant-france",
+  });
+  const session = auth.issueSessionToken({ userId: "user-1", role: "editor" });
+
+  assert.equal(auth.authRequired, true);
+  assert.equal(auth.passwordMatches("anything"), false);
+  assert.equal(auth.readSessionToken(session.token).userId, "user-1");
+});
+
 test("session tokens carry the selected tenant and user membership", () => {
   const now = 1_800_000_000_000;
   const auth = createAuth({

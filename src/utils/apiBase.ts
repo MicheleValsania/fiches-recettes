@@ -17,11 +17,14 @@ export type ApiAccessResult = "ok" | "unauthorized" | "offline";
 export type ApiSession = {
   tenant: { id: string; slug: string; name: string };
   user: { id: string; role: string } | null;
+};
+export type ApiAuthOptions = {
   registrationEnabled: boolean;
+  legacyLoginEnabled: boolean;
 };
 export type ApiSessionResult =
-  | { status: "ok"; session: ApiSession }
-  | { status: "unauthorized" | "offline"; session: null };
+  | { status: "ok"; session: ApiSession; options: ApiAuthOptions }
+  | { status: "unauthorized" | "offline"; session: null; options: ApiAuthOptions };
 export type OnboardingProgress = {
   completedSteps: string[];
   tourSeen: boolean;
@@ -79,23 +82,31 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
 }
 
 export async function checkApiSession(): Promise<ApiSessionResult> {
+  const fallbackOptions = { registrationEnabled: false, legacyLoginEnabled: true };
   try {
     const response = await fetch(`${API_BASE}/auth/status`, { headers: tokenHeaders() });
     if (!response.ok) {
-      return { status: response.status === 401 ? "unauthorized" : "offline", session: null };
+      return { status: response.status === 401 ? "unauthorized" : "offline", session: null, options: fallbackOptions };
     }
     const body = await response.json();
-    if (!body?.authenticated || !body?.tenant?.id) return { status: "unauthorized", session: null };
+    const options = {
+      registrationEnabled: Boolean(body.registrationEnabled),
+      legacyLoginEnabled: body.legacyLoginEnabled !== false,
+    };
+    if (!body?.authenticated || !body?.tenant?.id) {
+      setApiToken("");
+      return { status: "unauthorized", session: null, options };
+    }
     return {
       status: "ok",
+      options,
       session: {
         tenant: body.tenant,
         user: body.user?.id ? body.user : null,
-        registrationEnabled: Boolean(body.registrationEnabled),
       },
     };
   } catch {
-    return { status: "offline", session: null };
+    return { status: "offline", session: null, options: fallbackOptions };
   }
 }
 

@@ -71,6 +71,8 @@ La modalita storica con password applicativa apre esclusivamente il tenant confi
 - Lo sviluppo senza autenticazione richiede l'opzione esplicita `AUTH_DISABLED=true`.
 - Le password personali non sono conservate in chiaro.
 - La password storica non viene inclusa nel bundle frontend e non viene salvata dal browser.
+- Le sessioni personali vengono revocate immediatamente se l'utente e disattivato o perde la membership nel tenant.
+- L'accesso storico puo essere disattivato separatamente tramite `LEGACY_LOGIN_ENABLED`.
 - Il reset del database non e registrato normalmente; richiede l'abilitazione esplicita e un secondo token.
 - CORS limita le origini frontend autorizzate.
 - Il login e protetto da rate limiting in memoria, adeguato all'attuale singola istanza Railway.
@@ -93,7 +95,7 @@ npm run build
 
 Stato dell'ultima verifica completa:
 
-- 8 test server superati.
+- 12 test server superati.
 - ESLint senza errori o warning.
 - Build TypeScript/Vite completata.
 - Rimane soltanto l'avviso Vite sulla dimensione del bundle, non bloccante.

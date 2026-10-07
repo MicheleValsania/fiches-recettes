@@ -175,11 +175,21 @@ type Props = {
   lang: Lang;
   checking: boolean;
   initialError?: string;
+  registrationEnabled: boolean;
+  legacyLoginEnabled: boolean;
   onLangChange: (lang: Lang) => void;
   onAuthenticated: () => void;
 };
 
-export default function AuthPortal({ lang, checking, initialError, onLangChange, onAuthenticated }: Props) {
+export default function AuthPortal({
+  lang,
+  checking,
+  initialError,
+  registrationEnabled,
+  legacyLoginEnabled,
+  onLangChange,
+  onAuthenticated,
+}: Props) {
   const [mode, setMode] = useState<Mode>("landing");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -259,7 +269,9 @@ export default function AuthPortal({ lang, checking, initialError, onLangChange,
               <p>{c.intro}</p>
               <div className="portal-hero-actions">
                 <button className="portal-primary" type="button" onClick={() => open("login")}>{c.login}</button>
-                <button className="portal-secondary" type="button" onClick={() => open("register")}>{c.register}</button>
+                {registrationEnabled ? (
+                  <button className="portal-secondary" type="button" onClick={() => open("register")}>{c.register}</button>
+                ) : null}
               </div>
             </div>
             <div className="portal-orbit" aria-hidden="true">
@@ -315,7 +327,7 @@ export default function AuthPortal({ lang, checking, initialError, onLangChange,
             <button className="portal-primary portal-submit" type="submit" disabled={busy}>
               {busy ? "…" : mode === "login" ? c.submitLogin : mode === "register" ? c.submitRegister : c.submitLegacy}
             </button>
-            {mode === "login" ? (
+            {mode === "login" && legacyLoginEnabled ? (
               <button className="portal-legacy-link" type="button" onClick={() => open("legacy")}>{c.legacyLink}</button>
             ) : null}
           </form>

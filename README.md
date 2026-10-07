@@ -117,7 +117,8 @@ Con protezione attiva, aggiungi gli header `Authorization: Bearer <session-token
 
 In produzione il backend richiede:
 
-- `APP_PASSWORD`: password inserita dall'utente nella schermata di accesso; non viene inclusa nel bundle frontend.
+- `LEGACY_LOGIN_ENABLED`: mantiene disponibile l'accesso storico ChefSide; impostare `false` solo dopo la migrazione agli account personali.
+- `APP_PASSWORD`: password dell'accesso storico, richiesta soltanto quando `LEGACY_LOGIN_ENABLED` e attivo; non viene inclusa nel bundle frontend.
 - `AUTH_TOKEN_SECRET`: segreto casuale usato per firmare sessioni temporanee (8 ore per impostazione predefinita).
 - `FICHES_SERVICE_TOKEN`: segreto separato per le richieste server-to-server provenienti da CookOps.
 - `CORS_ALLOWED_ORIGINS`: origini frontend autorizzate, separate da virgola.
@@ -135,7 +136,7 @@ Il database associa fiches, categorie, fornitori e prodotti fornitore a un `tena
 
 Il tenant delle richieste viene ricavato dalla sessione firmata o dal token di servizio; non viene accettato dal payload o dai parametri inviati dal browser. Le route applicative filtrano letture e scritture per tenant. I valori `DEFAULT_TENANT_*` devono rimanere invariati dopo la prima migrazione per non creare una seconda organizzazione involontaria.
 
-Gli utenti personali sono registrati in `app_users` e collegati alle organizzazioni tramite `tenant_memberships`. Le password personali sono derivate con `scrypt` e sale casuale; il database non conserva la password originale. La sessione firmata contiene utente, tenant e ruolo.
+Gli utenti personali sono registrati in `app_users` e collegati alle organizzazioni tramite `tenant_memberships`. Le password personali sono derivate con `scrypt` e sale casuale; il database non conserva la password originale. La sessione firmata contiene utente, tenant e ruolo. A ogni richiesta personale il server verifica che l'utente sia ancora attivo e membro di quel tenant, e applica il ruolo corrente registrato nel database.
 
 La landing pubblica offre accesso personale e creazione di una nuova organizzazione. Le iscrizioni restano protette da invito:
 
@@ -143,7 +144,7 @@ La landing pubblica offre accesso personale e creazione di una nuova organizzazi
 - `REGISTRATION_INVITE_CODE` definisce il codice richiesto per creare un'organizzazione e deve essere trattato come un segreto server.
 - La registrazione crea in una sola transazione tenant, utente owner, membership e categorie iniziali.
 
-L'accesso ChefSide storico rimane disponibile dalla pagina di login e continua ad aprire esclusivamente il tenant configurato con `DEFAULT_TENANT_*`. Questo permette di migrare gradualmente gli utenti del campeggio verso account personali senza modificare le fiches esistenti.
+L'accesso ChefSide storico rimane disponibile dalla pagina di login e continua ad aprire esclusivamente il tenant configurato con `DEFAULT_TENANT_*`. Questo permette di migrare gradualmente gli utenti del campeggio verso account personali senza modificare le fiches esistenti. Quando la migrazione sara completa, `LEGACY_LOGIN_ENABLED=false` rimuovera il relativo accesso senza disattivare l'autenticazione personale.
 
 ## Tutorial e primo accesso
 

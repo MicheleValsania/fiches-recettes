@@ -22,6 +22,7 @@ import {
   loadOnboardingProgress,
   saveOnboardingProgress,
   type ApiSession,
+  type ApiAuthOptions,
 } from "./utils/apiBase";
 import {
   deleteFicheFromDb,
@@ -105,6 +106,10 @@ export default function App() {
   const [authState, setAuthState] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
   const [authError, setAuthError] = useState("");
   const [apiSession, setApiSession] = useState<ApiSession | null>(null);
+  const [apiAuthOptions, setApiAuthOptions] = useState<ApiAuthOptions>({
+    registrationEnabled: false,
+    legacyLoginEnabled: true,
+  });
   const [onboarding, setOnboarding] = useState<OnboardingState>({ completedSteps: [], tourSeen: false });
   const [onboardingLoaded, setOnboardingLoaded] = useState(false);
   const [fiche, setFiche] = useState<FicheTechnique>(() => {
@@ -135,6 +140,7 @@ export default function App() {
     let active = true;
     void checkApiSession().then((result) => {
       if (!active) return;
+      setApiAuthOptions(result.options);
       if (result.status === "ok") {
         setApiSession(result.session);
         setAuthState("authenticated");
@@ -1497,6 +1503,8 @@ export default function App() {
         lang={lang}
         checking={authState === "checking"}
         initialError={authError}
+        registrationEnabled={apiAuthOptions.registrationEnabled}
+        legacyLoginEnabled={apiAuthOptions.legacyLoginEnabled}
         onLangChange={setLang}
         onAuthenticated={() => window.location.reload()}
       />

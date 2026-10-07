@@ -5,11 +5,13 @@ import crypto from "node:crypto";
 import { createAuth, createLoginAttemptTracker, safeEqual } from "./auth.js";
 import { asyncRoute } from "./http.js";
 import { hashPassword, verifyPassword } from "./passwords.js";
+import { createSessionValidator } from "./sessionAccess.js";
 
 const app = express();
 const route = (method, path, handler) => app[method](path, asyncRoute(handler));
 const PORT = process.env.PORT || 3001;
 const authDisabled = process.env.AUTH_DISABLED === "true";
+const legacyLoginEnabled = !authDisabled && process.env.LEGACY_LOGIN_ENABLED !== "false";
 const appPassword = (process.env.APP_PASSWORD || "").trim();
 const authTokenSecret = (process.env.AUTH_TOKEN_SECRET || "").trim();
 const serviceToken = (process.env.FICHES_SERVICE_TOKEN || "").trim();
@@ -25,8 +27,8 @@ const tokenTtlSeconds = Number.isFinite(requestedTokenTtl) && requestedTokenTtl 
   ? requestedTokenTtl
   : 8 * 60 * 60;
 
-if (!authDisabled && !appPassword) {
-  throw new Error("APP_PASSWORD is required unless AUTH_DISABLED=true.");
+if (legacyLoginEnabled && !appPassword) {
+  throw new Error("APP_PASSWORD is required when LEGACY_LOGIN_ENABLED is active.");
 }
 if (!authDisabled && !serviceToken) {
   throw new Error("FICHES_SERVICE_TOKEN is required unless AUTH_DISABLED=true.");
@@ -42,6 +44,7 @@ if (allowDbReset && !dbResetToken) {
 }
 
 const auth = createAuth({
+  enabled: !authDisabled,
   password: authDisabled ? "" : appPassword,
   tokenSecret: authTokenSecret,
   serviceToken: authDisabled ? "" : serviceToken,
@@ -82,7 +85,7 @@ app.use((_req, res, next) => {
 });
 
 route("get", "/api/auth/status", async (req, res) => {
-  const authContext = auth.requestAuth(req);
+  const authContext = await resolveRequestAuth(req);
   const tenant = authContext
     ? (
         await pool.query("SELECT id, slug, name FROM tenants WHERE id = $1", [authContext.tenantId])
@@ -94,6 +97,7 @@ route("get", "/api/auth/status", async (req, res) => {
     authRequired: auth.authRequired,
     authenticated: Boolean(authContext && tenant),
     registrationEnabled,
+    legacyLoginEnabled,
     tenant,
     user: authContext?.userId
       ? { id: authContext.userId, role: authContext.role }
@@ -150,7 +154,7 @@ route("post", "/api/auth/login", async (req, res) => {
       tenant = { id: account.tenantId, slug: account.tenantSlug, name: account.tenantName };
       user = { id: account.id, email: account.email, displayName: account.displayName, role: account.role };
     }
-  } else if (auth.passwordMatches(password)) {
+  } else if (legacyLoginEnabled && auth.passwordMatches(password)) {
     session = auth.issueSessionToken({ tenantId: defaultTenantId, role: "owner" });
     tenant = { id: defaultTenantId, slug: defaultTenantSlug, name: defaultTenantName };
   }
@@ -249,12 +253,12 @@ route("post", "/api/auth/register", async (req, res) => {
   });
 });
 
-app.use("/api", (req, res, next) => {
+app.use("/api", asyncRoute(async (req, res, next) => {
   if (req.path === "/health") {
     next();
     return;
   }
-  const authContext = auth.requestAuth(req);
+  const authContext = await resolveRequestAuth(req);
   if (authContext) {
     if (authContext.role === "viewer" && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
       res.status(403).json({ ok: false, error: "read_only" });
@@ -266,7 +270,7 @@ app.use("/api", (req, res, next) => {
   }
   res.set("Cache-Control", "no-store");
   res.status(401).json({ ok: false, error: "unauthorized" });
-});
+}));
 
 function tenantId(req) {
   if (!req.auth?.tenantId) throw new Error("Authenticated request is missing tenant context.");
@@ -300,6 +304,21 @@ const pool = new Pool({
   password: process.env.PGPASSWORD || "postgres",
   database: process.env.PGDATABASE || "fiches",
 });
+
+const validateSession = createSessionValidator(async ({ userId, tenantId: targetTenantId }) => {
+  const { rows } = await pool.query(
+    `SELECT app_user.is_active AS active, membership.role
+     FROM app_users AS app_user
+     JOIN tenant_memberships AS membership ON membership.user_id = app_user.id
+     WHERE app_user.id = $1 AND membership.tenant_id = $2`,
+    [userId, targetTenantId]
+  );
+  return rows[0] || null;
+});
+
+async function resolveRequestAuth(req) {
+  return validateSession(auth.requestAuth(req));
+}
 
 async function bootstrapSchema() {
   const client = await pool.connect();
