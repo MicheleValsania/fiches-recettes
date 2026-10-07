@@ -83,7 +83,7 @@ Note:
 - Per cambiare retention/frequenza, modifica i parametri `KeepDays` e `Keep` in `scripts/backup.ps1`.
 
 ## Variabili DB (opzionale)
-Il backend legge queste variabili dâ€™ambiente:
+Il backend legge queste variabili d'ambiente:
 ```
 PGHOST=localhost
 PGPORT=5432
@@ -151,21 +151,21 @@ Gli account personali ricevono al primo accesso una visita guidata in cinque pas
 
 Il pulsante **Guida** resta disponibile per riaprire la checklist, ripetere la visita e consultare il centro assistenza trilingue. L'accesso storico ChefSide non avvia automaticamente il tour e conserva localmente l'eventuale avanzamento, perché non corrisponde ancora a un utente personale.
 
-## Flusso prezzi (fornitori â†” fiche)
+## Flusso prezzi (fornitori <-> fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.
 - Il listino supporta anche prezzo origine e unita origine per riferimento acquisti.
-- Inserisci o modifica prezzo/unitÃ  nella fiche: scrive nel listino.
+- Inserisci o modifica prezzo/unità nella fiche: scrive nel listino.
 - Il prezzo viene sempre letto dal listino per il calcolo del costo.
 
 ## Import listini CSV (fornitori + prodotti)
-Nella sezione **Fornitori** usa il bottone **Importa CSV** per caricare uno o piÃƒÂ¹ file CSV.
+Nella sezione **Fornitori** usa il bottone **Importa CSV** per caricare uno o più file CSV.
 Colonne minime richieste: `FOURNISSEUR`, `DESIGNATION`.
 Colonne supportate (opzionali): `CODE FOURNISSEUR`, `PRIX ORIGINE`, `UNITE ORIGINE`, `UNITE`, `PRIX UNIT HT`.
 - Le celle vuote nel CSV non cancellano i dati esistenti in listino (merge non distruttivo).
 - I duplicati dello stesso fornitore vengono sovrascritti con l'ultimo caricato.
 - Prodotti uguali con fornitori diversi vengono mantenuti.
 - Case-insensitive automatico (es. `ATS` -> `ats`).
-- Per somiglianze (es. `tropÃ©zienne` vs `les halles tropezienne`) viene chiesta conferma e puoi applicare la scelta a tutto l'import.
+- Per somiglianze (es. `tropézienne` vs `les halles tropezienne`) viene chiesta conferma e puoi applicare la scelta a tutto l'import.
 
 ## Workflow pratico: IA -> CSV -> fiches tecniche
 Questa prassi e' utile se costruisci o rivedi ricette in ChatGPT/Claude e vuoi importare rapidamente i prodotti nel listino.
@@ -228,7 +228,7 @@ powershell -ExecutionPolicy Bypass -File scripts/import-fiches-envelope.ps1 -Pat
 Note:
 - Lo script legge il file in UTF-8 strict.
 - Lo script invia payload come bytes UTF-8 (`charset=utf-8`) verso `/api/fiches`.
-- Se trova testo sospetto (`Ãƒ`, `Ã‚`, `ï¿½`) blocca l'import (override con `-AllowSuspectText`).
+- Se trova testo sospetto blocca l'import (override con `-AllowSuspectText`).
 
 ## Struttura progetto
 ```
@@ -240,14 +240,14 @@ src/
 ```
 
 ## Note
-- Lâ€™app usa Postgres locale (Docker) per salvare fiches e listini.
+- In sviluppo locale l'app usa PostgreSQL tramite Docker per salvare fiches e listini.
 - Per funzionare correttamente, assicurati che il backend sia avviato su `localhost:3001`.
 
 ## Changelog (2026-02-06)
 - Nuova scheda Prodotti con elenco completo e ricerca.
 - Ricerca in libreria fiches, fornitori e prodotti.
 - Migliorie toolbar: comandi fiche solo in editor e menu principale sempre visibile.
-- Import listini CSV multipli con parsing intelligente (fornitore, prodotto, unitÃ , prezzo).
+- Import listini CSV multipli con parsing intelligente (fornitore, prodotto, unità, prezzo).
 - Deduplica automatica case-insensitive + alert per nomi simili con scelta â€œapplica a tuttiâ€.
 - Rinomina fornitori e prodotti con propagazione alle fiche.
 - Eliminazione fornitori con pulizia riferimenti nelle fiche.

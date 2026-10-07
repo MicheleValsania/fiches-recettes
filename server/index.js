@@ -3,9 +3,11 @@ import cors from "cors";
 import pg from "pg";
 import crypto from "node:crypto";
 import { createAuth, createLoginAttemptTracker, safeEqual } from "./auth.js";
+import { asyncRoute } from "./http.js";
 import { hashPassword, verifyPassword } from "./passwords.js";
 
 const app = express();
+const route = (method, path, handler) => app[method](path, asyncRoute(handler));
 const PORT = process.env.PORT || 3001;
 const authDisabled = process.env.AUTH_DISABLED === "true";
 const appPassword = (process.env.APP_PASSWORD || "").trim();
@@ -79,7 +81,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.get("/api/auth/status", async (req, res) => {
+route("get", "/api/auth/status", async (req, res) => {
   const authContext = auth.requestAuth(req);
   const tenant = authContext
     ? (
@@ -99,7 +101,7 @@ app.get("/api/auth/status", async (req, res) => {
   });
 });
 
-app.post("/api/auth/login", async (req, res) => {
+route("post", "/api/auth/login", async (req, res) => {
   res.set("Cache-Control", "no-store");
   if (!auth.authRequired) {
     res.json({ ok: true, authRequired: false, token: null, expiresAt: null });
@@ -169,7 +171,7 @@ app.post("/api/auth/login", async (req, res) => {
   });
 });
 
-app.post("/api/auth/register", async (req, res) => {
+route("post", "/api/auth/register", async (req, res) => {
   res.set("Cache-Control", "no-store");
   if (!registrationEnabled) {
     res.status(403).json({ ok: false, error: "registration_disabled" });
@@ -509,7 +511,7 @@ async function seedCategories(client, targetTenantId) {
 
 await bootstrapSchema();
 
-app.get("/api/health", async (_req, res) => {
+route("get", "/api/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
     res.json({ ok: true });
@@ -518,7 +520,7 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
-app.get("/api/fiches", async (req, res) => {
+route("get", "/api/fiches", async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, title, data->>'category' AS category,
             created_at AS "createdAt", updated_at AS "updatedAt"
@@ -530,7 +532,7 @@ app.get("/api/fiches", async (req, res) => {
   res.json(rows);
 });
 
-app.get("/api/fiches/:id", async (req, res) => {
+route("get", "/api/fiches/:id", async (req, res) => {
   const { rows } = await pool.query(
     "SELECT data FROM fiches WHERE id = $1 AND tenant_id = $2",
     [req.params.id, tenantId(req)]
@@ -539,7 +541,7 @@ app.get("/api/fiches/:id", async (req, res) => {
   res.json(rows[0].data);
 });
 
-app.get("/api/categories", async (req, res) => {
+route("get", "/api/categories", async (req, res) => {
   const { rows } = await pool.query(
     `
     SELECT id,
@@ -557,7 +559,7 @@ app.get("/api/categories", async (req, res) => {
 
 const onboardingStepIds = new Set(["create", "compose", "suppliers", "save", "export"]);
 
-app.get("/api/onboarding", async (req, res) => {
+route("get", "/api/onboarding", async (req, res) => {
   if (!req.auth?.userId) {
     res.json({ completedSteps: [], tourSeen: false, persisted: false });
     return;
@@ -575,7 +577,7 @@ app.get("/api/onboarding", async (req, res) => {
   });
 });
 
-app.put("/api/onboarding", async (req, res) => {
+route("put", "/api/onboarding", async (req, res) => {
   if (!req.auth?.userId) {
     res.json({ ok: true, persisted: false });
     return;
@@ -600,7 +602,7 @@ app.put("/api/onboarding", async (req, res) => {
   res.json({ ok: true, persisted: true });
 });
 
-app.post("/api/fiches", async (req, res) => {
+route("post", "/api/fiches", async (req, res) => {
   const fiche = req.body;
   if (!fiche?.id) return res.status(400).json({ error: "Missing id" });
 
@@ -628,13 +630,13 @@ app.post("/api/fiches", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete("/api/fiches/:id", async (req, res) => {
+route("delete", "/api/fiches/:id", async (req, res) => {
   await pool.query("DELETE FROM fiches WHERE id = $1 AND tenant_id = $2", [req.params.id, tenantId(req)]);
   res.json({ ok: true });
 });
 
 if (allowDbReset) {
-  app.post("/api/reset", async (req, res) => {
+  route("post", "/api/reset", async (req, res) => {
     const providedResetToken = req.get("x-reset-token") || "";
     if (!providedResetToken || !safeEqual(providedResetToken, dbResetToken)) {
       res.status(403).json({ ok: false, error: "reset_forbidden" });
@@ -659,7 +661,7 @@ if (allowDbReset) {
   });
 }
 
-app.get("/api/suppliers", async (req, res) => {
+route("get", "/api/suppliers", async (req, res) => {
   const { rows } = await pool.query(
     `SELECT id, name, created_at AS "createdAt", updated_at AS "updatedAt"
      FROM suppliers WHERE tenant_id = $1 ORDER BY name ASC`,
@@ -668,7 +670,7 @@ app.get("/api/suppliers", async (req, res) => {
   res.json(rows);
 });
 
-app.put("/api/suppliers/:id", async (req, res) => {
+route("put", "/api/suppliers/:id", async (req, res) => {
   const supplierId = req.params.id;
   const targetTenantId = tenantId(req);
   const name = String(req.body?.name || "").trim();
@@ -747,7 +749,7 @@ app.put("/api/suppliers/:id", async (req, res) => {
   }
 });
 
-app.post("/api/suppliers", async (req, res) => {
+route("post", "/api/suppliers", async (req, res) => {
   const targetTenantId = tenantId(req);
   const name = String(req.body?.name || "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
@@ -767,7 +769,7 @@ app.post("/api/suppliers", async (req, res) => {
   res.json(rows[0]);
 });
 
-app.delete("/api/suppliers/:id", async (req, res) => {
+route("delete", "/api/suppliers/:id", async (req, res) => {
   const supplierId = req.params.id;
   const targetTenantId = tenantId(req);
   const client = await pool.connect();
@@ -824,7 +826,7 @@ app.delete("/api/suppliers/:id", async (req, res) => {
   }
 });
 
-app.get("/api/suppliers/:id/products", async (req, res) => {
+route("get", "/api/suppliers/:id/products", async (req, res) => {
   const targetTenantId = tenantId(req);
   const { rows } = await pool.query(
     `
@@ -846,7 +848,7 @@ app.get("/api/suppliers/:id/products", async (req, res) => {
   res.json(rows);
 });
 
-app.post("/api/suppliers/:id/products", async (req, res) => {
+route("post", "/api/suppliers/:id/products", async (req, res) => {
   const supplierId = req.params.id;
   const targetTenantId = tenantId(req);
   const name = String(req.body?.name || "").trim();
@@ -894,7 +896,7 @@ app.post("/api/suppliers/:id/products", async (req, res) => {
   res.json(rows[0]);
 });
 
-app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
+route("put", "/api/suppliers/:id/products/:productId", async (req, res) => {
   const supplierId = req.params.id;
   const productId = req.params.productId;
   const targetTenantId = tenantId(req);
@@ -931,7 +933,7 @@ app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
   res.json(rows[0]);
 });
 
-app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
+route("put", "/api/suppliers/:id/products/:productId/name", async (req, res) => {
   const supplierId = req.params.id;
   const productId = req.params.productId;
   const targetTenantId = tenantId(req);
@@ -1019,7 +1021,7 @@ app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
   }
 });
 
-app.delete("/api/suppliers/:id/products/:productId", async (req, res) => {
+route("delete", "/api/suppliers/:id/products/:productId", async (req, res) => {
   const supplierId = req.params.id;
   const productId = req.params.productId;
   await pool.query(
@@ -1027,6 +1029,15 @@ app.delete("/api/suppliers/:id/products/:productId", async (req, res) => {
     [productId, supplierId, tenantId(req)]
   );
   res.json({ ok: true });
+});
+
+app.use((error, _req, res, next) => {
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+  console.error("unhandled API error", error);
+  res.status(500).json({ ok: false, error: "internal_error" });
 });
 
 app.listen(PORT, () => {

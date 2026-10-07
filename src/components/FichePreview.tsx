@@ -1,5 +1,5 @@
 import type { FicheTechnique, IngredientLine } from "../types/fiche";
-import { computeFoodCost, computeIngredientCost, formatCurrency } from "../utils/costing";
+import { computeFoodCostSummary, computeIngredientCost, formatCurrency } from "../utils/costing";
 import { localeByLang, t, type Lang } from "../i18n";
 
 type Props = {
@@ -16,7 +16,7 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
     const info = getPriceForIngredient(ing);
     return info?.unitPrice != null && info.unit;
   });
-  const totalFoodCost = computeFoodCost(
+  const foodCost = computeFoodCostSummary(
     fiche.ingredients.map((ing) => {
       const info = getPriceForIngredient(ing);
       if (!info || info.unitPrice == null || !info.unit) return ing;
@@ -27,6 +27,7 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
       };
     })
   );
+  const totalFoodCost = foodCost.total;
   const foodCostPerPortion =
     totalFoodCost != null && fiche.portions ? totalFoodCost / fiche.portions : null;
 
@@ -80,6 +81,24 @@ export default function FichePreview({ fiche, lang, getPriceForIngredient }: Pro
           <div className="foodcost-value">{formatCurrency(foodCostPerPortion)}</div>
           {totalFoodCost != null && (
             <div className="foodcost-sub">{t(lang, "preview.totalRecipe", { value: formatCurrency(totalFoodCost) })}</div>
+          )}
+          {!foodCost.complete && foodCost.ingredientCount > 0 && (
+            <details className="foodcost-incomplete">
+              <summary>
+                {t(lang, "preview.foodCostPartial", {
+                  calculated: foodCost.calculatedCount,
+                  total: foodCost.ingredientCount,
+                })}
+              </summary>
+              <div>{t(lang, "preview.foodCostCompleteHint")}</div>
+              <ul>
+                {foodCost.incompleteIngredients.map((ingredient, index) => (
+                  <li key={`${ingredient.name}-${index}`}>
+                    {ingredient.displayName || ingredient.name || ingredient.qty}
+                  </li>
+                ))}
+              </ul>
+            </details>
           )}
         </div>
       )}

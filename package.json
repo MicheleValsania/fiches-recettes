@@ -14,7 +14,7 @@
     "db:counts": "node scripts/check-db-counts.mjs",
     "categories:assign:dry": "node scripts/assign-categories.mjs",
     "categories:assign": "node scripts/assign-categories.mjs --apply",
-    "test:server": "node --test server/auth.test.js server/passwords.test.js",
+    "test:server": "node --test server/auth.test.js server/http.test.js server/passwords.test.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

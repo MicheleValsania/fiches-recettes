@@ -1378,6 +1378,27 @@
   margin-top: 2px;
 }
 
+.foodcost-incomplete {
+  margin-top: 6px;
+  color: #7c2d12;
+  font-size: 11px;
+}
+
+.foodcost-incomplete summary {
+  width: fit-content;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.foodcost-incomplete div {
+  margin-top: 5px;
+}
+
+.foodcost-incomplete ul {
+  margin: 3px 0 0;
+  padding-left: 18px;
+}
+
 @media (max-width: 1000px) {
   .layout {
     grid-template-columns: 1fr;

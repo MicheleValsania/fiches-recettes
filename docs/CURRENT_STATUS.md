@@ -2,7 +2,6 @@
 
 Ultimo aggiornamento: 7 ottobre 2026  
 Branch di riferimento: `main`  
-Commit verificato: `e2483cf` (`Add guided onboarding and help centre`)
 
 Questo documento e la fotografia operativa del progetto. Descrive cio che e realmente disponibile oggi, come sono protetti i dati esistenti e quali parti restano da sviluppare. Non sostituisce il runbook tecnico o i contratti di integrazione.
 
@@ -10,7 +9,7 @@ Questo documento e la fotografia operativa del progetto. Descrive cio che e real
 
 Fiches Recettes e attualmente un'applicazione web multi-tenant in produzione. Permette di creare e gestire fiches tecniche, categorie, fornitori, prodotti e food cost, mantenendo separati i dati di ogni organizzazione.
 
-La migrazione multi-tenant ha conservato le fiches storiche del campeggio nel tenant `chefside-france` (`ChefSide France`). Le nuove registrazioni creano invece una nuova organizzazione isolata e non danno accesso ai dati storici.
+La migrazione multi-tenant ha conservato le fiches storiche del campeggio nella sua organizzazione dedicata. Le nuove registrazioni creano invece una nuova organizzazione isolata e non danno accesso ai dati storici.
 
 Frontend pubblico: <https://fiches-recettes.netlify.app>  
 Frontend: Netlify  
@@ -25,28 +24,14 @@ Backend e PostgreSQL: Railway
 - Libreria delle fiches con ricerca, modifica, duplicazione, eliminazione ed export.
 - Anteprima A4, stampa, export PDF e import/export JSON.
 - Gestione di fornitori, cataloghi prodotto, codici fornitore, unita di misura e prezzi.
-- Collegamento degli ingredienti ai prodotti fornitore e calcolo del food cost.
+- Collegamento degli ingredienti ai prodotti fornitore e calcolo del food cost, con indicazione discreta dei costi parziali.
 - Importazione CSV dei listini con aggiornamento non distruttivo.
 - Tutorial guidato al primo accesso personale, checklist persistente e centro assistenza trilingue.
 - Integrazione server-to-server con CookOps tramite token di servizio separato.
 
 ## Organizzazioni e dati
 
-Snapshot verificato il 7 ottobre 2026:
-
-| Organizzazione | Slug | Fiches | Categorie |
-| --- | --- | ---: | ---: |
-| ChefSide France | `chefside-france` | 133 | 20 |
-| Chefside - Michele Valsania | `chefside-michele-valsania-0c4735` | 1 | 20 |
-
-Totali osservati nello stesso controllo:
-
-- 134 fiches.
-- 40 categorie.
-- 21 fornitori.
-- 569 prodotti fornitore.
-
-Questi numeri sono una fotografia e possono cambiare con il normale utilizzo. Il secondo tenant e stato mantenuto come organizzazione distinta; non deve essere eliminato senza una decisione esplicita del proprietario.
+La produzione contiene l'organizzazione storica del campeggio e organizzazioni di prova separate. I conteggi e gli identificativi operativi non vengono pubblicati in questo repository. Prima di migrazioni o eliminazioni devono essere controllati direttamente sul database e confrontati con un backup recente.
 
 ## Modalita di accesso
 
@@ -94,9 +79,7 @@ Il rate limiting dovra essere trasferito a uno storage condiviso, come Redis, pr
 
 ## Backup e verifiche
 
-Ultimo backup locale Railway verificato prima dell'introduzione del portale account:
-
-`backups/railway-20261007-145331.dump`
+I backup Railway vengono salvati localmente in `backups/` e non sono versionati. Il nome e la data dell'ultimo file devono essere verificati sul computer operativo prima di ogni intervento sui dati.
 
 Comandi principali:
 
@@ -110,7 +93,7 @@ npm run build
 
 Stato dell'ultima verifica completa:
 
-- 7 test server superati.
+- 8 test server superati.
 - ESLint senza errori o warning.
 - Build TypeScript/Vite completata.
 - Rimane soltanto l'avviso Vite sulla dimensione del bundle, non bloccante.

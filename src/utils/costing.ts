@@ -7,6 +7,14 @@ type ParsedQty = {
   unit?: QtyUnit;
 };
 
+export type FoodCostSummary = {
+  total: number | null;
+  calculatedCount: number;
+  ingredientCount: number;
+  incompleteIngredients: IngredientLine[];
+  complete: boolean;
+};
+
 const UNIT_ALIASES: Record<string, QtyUnit> = {
   kg: "kg",
   g: "g",
@@ -101,18 +109,34 @@ export function computeIngredientCost(ingredient: IngredientLine): number | null
 }
 
 export function computeFoodCost(ingredients: IngredientLine[]) {
-  let total = 0;
-  let any = false;
+  return computeFoodCostSummary(ingredients).total;
+}
 
-  for (const ingredient of ingredients) {
+export function computeFoodCostSummary(ingredients: IngredientLine[]): FoodCostSummary {
+  let total = 0;
+  let calculatedCount = 0;
+  const relevantIngredients = ingredients.filter((ingredient) =>
+    Boolean(ingredient.name?.trim() || ingredient.displayName?.trim() || ingredient.qty?.trim())
+  );
+  const incompleteIngredients: IngredientLine[] = [];
+
+  for (const ingredient of relevantIngredients) {
     const cost = computeIngredientCost(ingredient);
     if (cost != null) {
       total += cost;
-      any = true;
+      calculatedCount += 1;
+    } else {
+      incompleteIngredients.push(ingredient);
     }
   }
 
-  return any ? total : null;
+  return {
+    total: calculatedCount > 0 ? total : null,
+    calculatedCount,
+    ingredientCount: relevantIngredients.length,
+    incompleteIngredients,
+    complete: relevantIngredients.length > 0 && incompleteIngredients.length === 0,
+  };
 }
 
 export function formatCurrency(value: number | string) {
