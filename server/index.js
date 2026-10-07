@@ -528,8 +528,6 @@ async function seedCategories(client, targetTenantId) {
   );
 }
 
-await bootstrapSchema();
-
 route("get", "/api/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
@@ -1095,8 +1093,19 @@ app.use((error, _req, res, next) => {
   res.status(500).json({ ok: false, error: "internal_error" });
 });
 
-app.listen(PORT, () => {
-  console.log(`DB server running on http://localhost:${PORT}`);
-});
+export async function startServer(port = PORT) {
+  await bootstrapSchema();
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, () => {
+      console.log(`DB server running on http://localhost:${server.address().port}`);
+      resolve(server);
+    });
+    server.once("error", reject);
+  });
+}
 
+export { app, bootstrapSchema, pool };
 
+if (process.env.SERVER_IMPORT_ONLY !== "true") {
+  await startServer();
+}

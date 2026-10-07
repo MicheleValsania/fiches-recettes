@@ -15,6 +15,7 @@
     "categories:assign:dry": "node scripts/assign-categories.mjs",
     "categories:assign": "node scripts/assign-categories.mjs --apply",
     "test:server": "node --test server/auth.test.js server/http.test.js server/passwords.test.js server/sessionAccess.test.js",
+    "test:integration": "node --test --test-concurrency=1 server/tenantIsolation.integration.test.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

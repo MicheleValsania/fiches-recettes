@@ -245,6 +245,16 @@ src/
 - In sviluppo locale l'app usa PostgreSQL tramite Docker per salvare fiches e listini.
 - Per funzionare correttamente, assicurati che il backend sia avviato su `localhost:3001`.
 
+## Test multi-tenant
+Il test d'integrazione crea un database PostgreSQL temporaneo, avvia il backend reale su una porta casuale e verifica l'isolamento CRUD tra due organizzazioni. Accetta esclusivamente un database locale e rimuove il database temporaneo al termine.
+
+```powershell
+$env:TEST_DATABASE_URL='postgresql://postgres:postgres@127.0.0.1:5432/postgres'
+npm run test:integration
+```
+
+GitHub Actions esegue automaticamente lint, test unitari, test d'integrazione e build a ogni push e pull request.
+
 ## Changelog (2026-02-06)
 - Nuova scheda Prodotti con elenco completo e ricerca.
 - Ricerca in libreria fiches, fornitori e prodotti.

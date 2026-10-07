@@ -89,6 +89,7 @@ Comandi principali:
 npm run backup:railway
 npm run db:counts
 npm run test:server
+npm run test:integration # richiede TEST_DATABASE_URL locale
 npm run lint
 npm run build
 ```
@@ -96,6 +97,8 @@ npm run build
 Stato dell'ultima verifica completa:
 
 - 12 test server superati.
+- Test d'integrazione PostgreSQL superato con due tenant e route reali per fiches, fornitori, prodotti e categorie.
+- La regressione sulle rinomine verifica che le fiches non collegate non vengano modificate per semplici corrispondenze testuali.
 - ESLint senza errori o warning.
 - Build TypeScript/Vite completata.
 - Rimane soltanto l'avviso Vite sulla dimensione del bundle, non bloccante.
