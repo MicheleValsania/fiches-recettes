@@ -33,13 +33,17 @@ export function createAuth({
     return crypto.createHmac("sha256", normalizedTokenSecret).update(encodedPayload).digest("base64url");
   }
 
-  function issueSessionToken() {
+  function issueSessionToken({ tenantId: sessionTenantId, userId = null, role = "owner" } = {}) {
     if (!authRequired) return null;
+    const tokenTenantId = String(sessionTenantId || normalizedTenantId).trim();
+    if (!tokenTenantId) throw new Error("A tenantId is required to issue a session token.");
     const expiresAt = Math.floor(now() / 1000) + tokenTtlSeconds;
     const payload = Buffer.from(
       JSON.stringify({
         exp: expiresAt,
-        tid: normalizedTenantId,
+        tid: tokenTenantId,
+        uid: userId ? String(userId) : null,
+        role: String(role || "viewer"),
         nonce: crypto.randomBytes(16).toString("base64url"),
       })
     ).toString("base64url");
@@ -57,8 +61,14 @@ export function createAuth({
     try {
       const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
       if (!Number.isFinite(parsed.exp) || parsed.exp <= Math.floor(now() / 1000)) return null;
-      if (parsed.tid !== normalizedTenantId) return null;
-      return { tenantId: parsed.tid, expiresAt: parsed.exp };
+      if (typeof parsed.tid !== "string" || !parsed.tid.trim()) return null;
+      if (typeof parsed.role !== "string" || !parsed.role.trim()) return null;
+      return {
+        tenantId: parsed.tid,
+        userId: typeof parsed.uid === "string" && parsed.uid ? parsed.uid : null,
+        role: parsed.role,
+        expiresAt: parsed.exp,
+      };
     } catch {
       return null;
     }
@@ -73,7 +83,9 @@ export function createAuth({
   }
 
   function requestAuth(req) {
-    if (!authRequired) return { tenantId: normalizedTenantId, kind: "development" };
+    if (!authRequired) {
+      return { tenantId: normalizedTenantId, userId: null, role: "owner", kind: "development" };
+    }
 
     const providedServiceToken = req.get("x-service-token") || "";
     if (
@@ -81,14 +93,16 @@ export function createAuth({
       providedServiceToken &&
       safeEqual(providedServiceToken, normalizedServiceToken)
     ) {
-      return { tenantId: normalizedTenantId, kind: "service" };
+      return { tenantId: normalizedTenantId, userId: null, role: "service", kind: "service" };
     }
 
     const authorization = req.get("authorization") || "";
     const match = authorization.match(/^Bearer\s+(.+)$/i);
     if (!match) return null;
     const session = readSessionToken(match[1]);
-    return session ? { tenantId: session.tenantId, kind: "session" } : null;
+    return session
+      ? { tenantId: session.tenantId, userId: session.userId, role: session.role, kind: "session" }
+      : null;
   }
 
   function requestIsAuthorized(req) {

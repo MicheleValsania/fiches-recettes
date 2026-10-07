@@ -1,5 +1,4 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./App.css";
 import "./print.css";
@@ -7,12 +6,13 @@ import "./print.css";
 import type { FicheTechnique } from "./types/fiche";
 import FicheForm from "./components/FicheForm";
 import FichePreview from "./components/FichePreview";
+import AuthPortal from "./components/AuthPortal";
 import { getInitialLang, LANG_STORAGE_KEY, localeByLang, t, type Lang } from "./i18n";
 import { downloadBlob, downloadJson, readJsonFile, safeFilename } from "./utils/exporters";
 import { buildExportEnvelopeV11 } from "./utils/exportV11";
 import { exportElementToA4Pdf, exportSupplierOrderListPdf, renderElementToA4PdfBlob } from "./utils/pdf";
 import { createZipBlob } from "./utils/zip";
-import { API_AUTH_EXPIRED_EVENT, checkApiAccess, loginApi } from "./utils/apiBase";
+import { API_AUTH_EXPIRED_EVENT, checkApiAccess } from "./utils/apiBase";
 import {
   deleteFicheFromDb,
   listFichesFromDb,
@@ -93,7 +93,6 @@ export default function App() {
     return raw === "1";
   });
   const [authState, setAuthState] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
-  const [authInput, setAuthInput] = useState("");
   const [authError, setAuthError] = useState("");
   const [fiche, setFiche] = useState<FicheTechnique>(() => {
     try {
@@ -1379,19 +1378,6 @@ export default function App() {
   const locale = localeByLang[lang];
   const langFlag: Record<Lang, string> = { it: "IT", fr: "FR", en: "EN" };
 
-  const onSubmitAuth = async (event: FormEvent) => {
-    event.preventDefault();
-    setAuthError("");
-    const result = await loginApi(authInput);
-    if (result === "ok") {
-      setAuthState("authenticated");
-      setAuthError("");
-      window.location.reload();
-      return;
-    }
-    setAuthError(t(lang, result === "offline" ? "auth.offline" : "auth.invalidPassword"));
-  };
-
   const ficheHasContent = (data: FicheTechnique) => {
     if (data.title.trim() || data.category?.trim() || data.notes?.trim()) return true;
     if (data.ingredients.some((ing) => ing.name.trim() || ing.qty.trim() || ing.note?.trim())) return true;
@@ -1434,33 +1420,13 @@ export default function App() {
   };
   if (authState !== "authenticated") {
     return (
-      <div className="auth-screen">
-        <div className="auth-card">
-          <div className="auth-title">{t(lang, "auth.title")}</div>
-          <div className="auth-subtitle">
-            {t(lang, authState === "checking" ? "auth.checking" : "auth.subtitle")}
-          </div>
-          {authState === "unauthenticated" ? (
-            <form className="auth-form" onSubmit={onSubmitAuth}>
-              <input
-                className="input auth-input"
-                type="password"
-                autoComplete="current-password"
-                value={authInput}
-                onChange={(e) => {
-                  setAuthInput(e.target.value);
-                  if (authError) setAuthError("");
-                }}
-                placeholder={t(lang, "auth.placeholder")}
-              />
-              <button className="btn btn-primary auth-button" type="submit">
-                {t(lang, "auth.submit")}
-              </button>
-            </form>
-          ) : null}
-          {authError ? <div className="auth-error">{authError}</div> : null}
-        </div>
-      </div>
+      <AuthPortal
+        lang={lang}
+        checking={authState === "checking"}
+        initialError={authError}
+        onLangChange={setLang}
+        onAuthenticated={() => window.location.reload()}
+      />
     );
   }
 

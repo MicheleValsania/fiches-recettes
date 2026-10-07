@@ -146,7 +146,15 @@ Il database associa fiches, categorie, fornitori e prodotti fornitore a un `tena
 
 Il tenant delle richieste viene ricavato dalla sessione firmata o dal token di servizio; non viene accettato dal payload o dai parametri inviati dal browser. Le route applicative filtrano letture e scritture per tenant. I valori `DEFAULT_TENANT_*` devono rimanere invariati dopo la prima migrazione per non creare una seconda organizzazione involontaria.
 
-Le tabelle `app_users` e `tenant_memberships` preparano l'accesso futuro di utenti e organizzazioni multiple. L'interfaccia corrente continua a usare l'accesso ChefSide esistente e il tenant storico, senza modificare il flusso di lavoro quotidiano.
+Gli utenti personali sono registrati in `app_users` e collegati alle organizzazioni tramite `tenant_memberships`. Le password personali sono derivate con `scrypt` e sale casuale; il database non conserva la password originale. La sessione firmata contiene utente, tenant e ruolo.
+
+La landing pubblica offre accesso personale e creazione di una nuova organizzazione. Le iscrizioni restano protette da invito:
+
+- `REGISTRATION_ENABLED=true` abilita l'endpoint di registrazione.
+- `REGISTRATION_INVITE_CODE` definisce il codice richiesto per creare un'organizzazione e deve essere trattato come un segreto server.
+- La registrazione crea in una sola transazione tenant, utente owner, membership e categorie iniziali.
+
+L'accesso ChefSide storico rimane disponibile dalla pagina di login e continua ad aprire esclusivamente il tenant configurato con `DEFAULT_TENANT_*`. Questo permette di migrare gradualmente gli utenti del campeggio verso account personali senza modificare le fiches esistenti.
 
 ## Flusso prezzi (fornitori â†” fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.

@@ -3,6 +3,7 @@ import cors from "cors";
 import pg from "pg";
 import crypto from "node:crypto";
 import { createAuth, createLoginAttemptTracker, safeEqual } from "./auth.js";
+import { hashPassword, verifyPassword } from "./passwords.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -13,6 +14,8 @@ const serviceToken = (process.env.FICHES_SERVICE_TOKEN || "").trim();
 const defaultTenantId = (process.env.DEFAULT_TENANT_ID || "00000000-0000-4000-8000-000000000001").trim();
 const defaultTenantSlug = (process.env.DEFAULT_TENANT_SLUG || "chefside-france").trim();
 const defaultTenantName = (process.env.DEFAULT_TENANT_NAME || "ChefSide France").trim();
+const registrationEnabled = process.env.REGISTRATION_ENABLED === "true";
+const registrationInviteCode = (process.env.REGISTRATION_INVITE_CODE || "").trim();
 const allowDbReset = process.env.ALLOW_DB_RESET === "true";
 const dbResetToken = (process.env.DB_RESET_TOKEN || "").trim();
 const requestedTokenTtl = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 8 * 60 * 60);
@@ -28,6 +31,9 @@ if (!authDisabled && !serviceToken) {
 }
 if (!defaultTenantId || !defaultTenantSlug || !defaultTenantName) {
   throw new Error("DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG and DEFAULT_TENANT_NAME cannot be empty.");
+}
+if (registrationEnabled && !registrationInviteCode) {
+  throw new Error("REGISTRATION_INVITE_CODE is required when REGISTRATION_ENABLED=true.");
 }
 if (allowDbReset && !dbResetToken) {
   throw new Error("DB_RESET_TOKEN is required when ALLOW_DB_RESET=true.");
@@ -73,20 +79,27 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.get("/api/auth/status", (req, res) => {
+app.get("/api/auth/status", async (req, res) => {
   const authContext = auth.requestAuth(req);
+  const tenant = authContext
+    ? (
+        await pool.query("SELECT id, slug, name FROM tenants WHERE id = $1", [authContext.tenantId])
+      ).rows[0] || null
+    : null;
   res.set("Cache-Control", "no-store");
   res.json({
     ok: true,
     authRequired: auth.authRequired,
-    authenticated: Boolean(authContext),
-    tenant: authContext
-      ? { id: authContext.tenantId, slug: defaultTenantSlug, name: defaultTenantName }
+    authenticated: Boolean(authContext && tenant),
+    registrationEnabled,
+    tenant,
+    user: authContext?.userId
+      ? { id: authContext.userId, role: authContext.role }
       : null,
   });
 });
 
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   res.set("Cache-Control", "no-store");
   if (!auth.authRequired) {
     res.json({ ok: true, authRequired: false, token: null, expiresAt: null });
@@ -101,18 +114,135 @@ app.post("/api/auth/login", (req, res) => {
     return;
   }
 
-  if (!auth.passwordMatches(req.body?.password)) {
+  const email = normalizeEmail(req.body?.email);
+  const password = String(req.body?.password || "");
+  let session = null;
+  let tenant = null;
+  let user = null;
+
+  if (email) {
+    const { rows } = await pool.query(
+      `SELECT app_user.id,
+              app_user.email,
+              app_user.display_name AS "displayName",
+              app_user.password_hash AS "passwordHash",
+              membership.tenant_id AS "tenantId",
+              membership.role,
+              tenant.slug AS "tenantSlug",
+              tenant.name AS "tenantName"
+       FROM app_users AS app_user
+       JOIN tenant_memberships AS membership ON membership.user_id = app_user.id
+       JOIN tenants AS tenant ON tenant.id = membership.tenant_id
+       WHERE lower(app_user.email) = $1 AND app_user.is_active = true
+       ORDER BY membership.created_at ASC
+       LIMIT 1`,
+      [email]
+    );
+    const account = rows[0];
+    if (account && (await verifyPassword(password, account.passwordHash))) {
+      session = auth.issueSessionToken({
+        tenantId: account.tenantId,
+        userId: account.id,
+        role: account.role,
+      });
+      tenant = { id: account.tenantId, slug: account.tenantSlug, name: account.tenantName };
+      user = { id: account.id, email: account.email, displayName: account.displayName, role: account.role };
+    }
+  } else if (auth.passwordMatches(password)) {
+    session = auth.issueSessionToken({ tenantId: defaultTenantId, role: "owner" });
+    tenant = { id: defaultTenantId, slug: defaultTenantSlug, name: defaultTenantName };
+  }
+
+  if (!session) {
     loginAttempts.recordFailure(clientKey);
     res.status(401).json({ ok: false, error: "unauthorized" });
     return;
   }
 
   loginAttempts.reset(clientKey);
-  const session = auth.issueSessionToken();
   res.json({
     ok: true,
     authRequired: true,
-    tenant: { id: defaultTenantId, slug: defaultTenantSlug, name: defaultTenantName },
+    tenant,
+    user,
+    ...session,
+  });
+});
+
+app.post("/api/auth/register", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  if (!registrationEnabled) {
+    res.status(403).json({ ok: false, error: "registration_disabled" });
+    return;
+  }
+
+  const clientKey = `register:${req.ip || req.socket.remoteAddress || "unknown"}`;
+  const block = loginAttempts.isBlocked(clientKey);
+  if (block.blocked) {
+    res.set("Retry-After", String(block.retryAfterSeconds));
+    res.status(429).json({ ok: false, error: "too_many_attempts" });
+    return;
+  }
+
+  const inviteCode = String(req.body?.inviteCode || "").trim();
+  if (!safeEqual(inviteCode, registrationInviteCode)) {
+    loginAttempts.recordFailure(clientKey);
+    res.status(403).json({ ok: false, error: "invalid_invite" });
+    return;
+  }
+
+  const email = normalizeEmail(req.body?.email);
+  const password = String(req.body?.password || "");
+  const displayName = String(req.body?.displayName || "").trim();
+  const organizationName = String(req.body?.organizationName || "").trim();
+  if (!isValidEmail(email) || displayName.length < 2 || organizationName.length < 2 || password.length < 12) {
+    res.status(400).json({ ok: false, error: "invalid_registration" });
+    return;
+  }
+
+  const passwordHash = await hashPassword(password);
+  const userId = crypto.randomUUID();
+  const newTenantId = crypto.randomUUID();
+  const tenantSlug = `${slugify(organizationName)}-${crypto.randomBytes(3).toString("hex")}`;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "INSERT INTO tenants (id, slug, name) VALUES ($1, $2, $3)",
+      [newTenantId, tenantSlug, organizationName]
+    );
+    await client.query(
+      `INSERT INTO app_users (id, email, display_name, password_hash)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, email, displayName, passwordHash]
+    );
+    await client.query(
+      `INSERT INTO tenant_memberships (tenant_id, user_id, role)
+       VALUES ($1, $2, 'owner')`,
+      [newTenantId, userId]
+    );
+    await seedCategories(client, newTenantId);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    if (error?.code === "23505") {
+      res.status(409).json({ ok: false, error: "account_exists" });
+      return;
+    }
+    console.error("registration failed", error);
+    res.status(500).json({ ok: false, error: "registration_failed" });
+    return;
+  } finally {
+    client.release();
+  }
+
+  loginAttempts.reset(clientKey);
+  const session = auth.issueSessionToken({ tenantId: newTenantId, userId, role: "owner" });
+  res.status(201).json({
+    ok: true,
+    authRequired: true,
+    tenant: { id: newTenantId, slug: tenantSlug, name: organizationName },
+    user: { id: userId, email, displayName, role: "owner" },
     ...session,
   });
 });
@@ -124,6 +254,10 @@ app.use("/api", (req, res, next) => {
   }
   const authContext = auth.requestAuth(req);
   if (authContext) {
+    if (authContext.role === "viewer" && !["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      res.status(403).json({ ok: false, error: "read_only" });
+      return;
+    }
     req.auth = authContext;
     next();
     return;
@@ -135,6 +269,25 @@ app.use("/api", (req, res, next) => {
 function tenantId(req) {
   if (!req.auth?.tenantId) throw new Error("Authenticated request is missing tenant context.");
   return req.auth.tenantId;
+}
+
+function normalizeEmail(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+  return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function slugify(value) {
+  const slug = String(value)
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  return slug || "organisation";
 }
 
 const { Pool } = pg;
@@ -262,6 +415,8 @@ async function bootstrapSchema() {
         ON supplier_products (tenant_id, supplier_id, name);
       CREATE INDEX IF NOT EXISTS fiches_tenant_updated_idx ON fiches (tenant_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS supplier_products_tenant_idx ON supplier_products (tenant_id, supplier_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS app_users_email_lower_key ON app_users (lower(email));
+      CREATE INDEX IF NOT EXISTS tenant_memberships_user_idx ON tenant_memberships (user_id);
     `);
 
     await client.query(`

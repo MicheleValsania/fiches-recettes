@@ -29,6 +29,7 @@ test("session tokens are signed and expire", () => {
 
   assert.equal(auth.verifySessionToken(session.token), true);
   assert.equal(auth.readSessionToken(session.token).tenantId, "tenant-france");
+  assert.equal(auth.readSessionToken(session.token).role, "owner");
   assert.equal(auth.verifySessionToken(`${session.token}tampered`), false);
   timestamp += 61_000;
   assert.equal(auth.verifySessionToken(session.token), false);
@@ -54,17 +55,27 @@ test("browser sessions and service tokens authorize independently", () => {
   );
   assert.deepEqual(
     auth.requestAuth(requestWith({ "x-service-token": "cookops-service-token" })),
-    { tenantId: "tenant-france", kind: "service" }
+    { tenantId: "tenant-france", userId: null, role: "service", kind: "service" }
   );
 });
 
-test("tokens cannot be reused by another tenant", () => {
-  const france = createAuth({ password: "password", tokenSecret: "shared-secret", tenantId: "tenant-france" });
-  const italy = createAuth({ password: "password", tokenSecret: "shared-secret", tenantId: "tenant-italy" });
-  const session = france.issueSessionToken();
+test("session tokens carry the selected tenant and user membership", () => {
+  const now = 1_800_000_000_000;
+  const auth = createAuth({
+    password: "password",
+    tokenSecret: "shared-secret",
+    tenantId: "tenant-france",
+    now: () => now,
+  });
+  const session = auth.issueSessionToken({ tenantId: "tenant-italy", userId: "user-1", role: "editor" });
+  const parsed = auth.readSessionToken(session.token);
 
-  assert.equal(france.verifySessionToken(session.token), true);
-  assert.equal(italy.verifySessionToken(session.token), false);
+  assert.deepEqual(parsed, {
+    tenantId: "tenant-italy",
+    userId: "user-1",
+    role: "editor",
+    expiresAt: Math.floor(now / 1000) + 8 * 60 * 60,
+  });
 });
 
 test("login attempt tracking blocks repeated failures and resets after success", () => {

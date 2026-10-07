@@ -14,6 +14,23 @@ const API_TOKEN_KEY = "fiches-recettes:api-session";
 export const API_AUTH_EXPIRED_EVENT = "fiches-recettes:auth-expired";
 
 export type ApiAccessResult = "ok" | "unauthorized" | "offline";
+export type AuthFailureReason =
+  | "unauthorized"
+  | "offline"
+  | "invalid_invite"
+  | "invalid_registration"
+  | "account_exists"
+  | "registration_disabled"
+  | "too_many_attempts"
+  | "registration_failed";
+export type AuthActionResult = { ok: true } | { ok: false; reason: AuthFailureReason };
+export type RegistrationPayload = {
+  displayName: string;
+  email: string;
+  password: string;
+  organizationName: string;
+  inviteCode: string;
+};
 
 export function getApiToken(): string {
   try {
@@ -59,19 +76,42 @@ export async function checkApiAccess(): Promise<ApiAccessResult> {
   }
 }
 
-export async function loginApi(password: string): Promise<ApiAccessResult> {
+async function authenticate(path: string, body: object): Promise<AuthActionResult> {
   try {
-    const response = await fetch(`${API_BASE}/auth/login`, {
+    const response = await fetch(`${API_BASE}${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(body),
     });
-    if (response.status === 401 || response.status === 429) return "unauthorized";
-    if (!response.ok) return "offline";
-    const body = await response.json();
-    setApiToken(typeof body?.token === "string" ? body.token : "");
-    return "ok";
+    const responseBody = await response.json().catch(() => null);
+    if (!response.ok) {
+      const knownReasons: AuthFailureReason[] = [
+        "unauthorized",
+        "invalid_invite",
+        "invalid_registration",
+        "account_exists",
+        "registration_disabled",
+        "too_many_attempts",
+        "registration_failed",
+      ];
+      const reason = knownReasons.includes(responseBody?.error) ? responseBody.error : "offline";
+      return { ok: false, reason };
+    }
+    setApiToken(typeof responseBody?.token === "string" ? responseBody.token : "");
+    return { ok: true };
   } catch {
-    return "offline";
+    return { ok: false, reason: "offline" };
   }
+}
+
+export function loginApi(email: string, password: string) {
+  return authenticate("/auth/login", { email, password });
+}
+
+export function loginLegacyApi(password: string) {
+  return authenticate("/auth/login", { password });
+}
+
+export function registerApi(payload: RegistrationPayload) {
+  return authenticate("/auth/register", payload);
 }
