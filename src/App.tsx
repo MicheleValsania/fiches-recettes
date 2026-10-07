@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import "./App.css";
@@ -192,46 +192,47 @@ export default function App() {
   const [allProductsQuery, setAllProductsQuery] = useState("");
   const [priceIndex, setPriceIndex] = useState<PriceIndex>({ byProductId: {}, bySupplierKey: {} });
 
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const tag = target?.tagName?.toLowerCase();
-      const isEditable =
-        tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
+  const onGlobalKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    const target = event.target as HTMLElement | null;
+    const tag = target?.tagName?.toLowerCase();
+    const isEditable =
+      tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable;
 
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      if (!dbBusy) onSaveDb();
+      return;
+    }
+
+    if (view === "editor" && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      if (isEditable) return;
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
-        if (!dbBusy) onSaveDb();
+        void onNavigateEditor(-1);
         return;
       }
-
-      if (view === "editor" && event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
-        if (isEditable) return;
-        if (event.key === "ArrowLeft") {
-          event.preventDefault();
-          void onNavigateEditor(-1);
-          return;
-        }
-        if (event.key === "ArrowRight") {
-          event.preventDefault();
-          void onNavigateEditor(1);
-          return;
-        }
-      }
-
-      if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        if (isEditable) return;
+      if (event.key === "ArrowRight") {
         event.preventDefault();
-        if (view === "library") librarySearchRef.current?.focus();
-        else if (view === "suppliers") supplierSearchRef.current?.focus();
-        else if (view === "products") productsSearchRef.current?.focus();
-        else if (view === "supplierDetail") supplierProductsSearchRef.current?.focus();
+        void onNavigateEditor(1);
+        return;
       }
-    };
+    }
 
+    if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (isEditable) return;
+      event.preventDefault();
+      if (view === "library") librarySearchRef.current?.focus();
+      else if (view === "suppliers") supplierSearchRef.current?.focus();
+      else if (view === "products") productsSearchRef.current?.focus();
+      else if (view === "supplierDetail") supplierProductsSearchRef.current?.focus();
+    }
+  });
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => onGlobalKeyDown(event);
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [dbBusy, view, editorNavContext, fiche]);
+  }, []);
 
   const fileNameBase = useMemo(() => {
     const title = fiche.title?.trim() ? fiche.title.trim() : "fiche-technique";
@@ -903,12 +904,16 @@ export default function App() {
     setPriceIndex(next);
   };
 
+  const loadPriceIndex = useEffectEvent((ingredients: FicheTechnique["ingredients"]) =>
+    buildPriceIndexForIngredients(ingredients)
+  );
+
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        if (!active) return;
-        await rebuildPriceIndex(fiche.ingredients);
+        const next = await loadPriceIndex(fiche.ingredients);
+        if (active) setPriceIndex(next);
       } catch {
         if (active) setPriceIndex({ byProductId: {}, bySupplierKey: {} });
       }

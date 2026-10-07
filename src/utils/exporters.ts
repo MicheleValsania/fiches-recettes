@@ -18,9 +18,12 @@ export async function readJsonFile<T>(file: File): Promise<T> {
 }
 
 export function safeFilename(name: string) {
-  return name
-    .trim()
-    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+  const withoutControlCharacters = Array.from(name.trim(), (character) =>
+    character.charCodeAt(0) <= 0x1f ? "_" : character
+  ).join("");
+
+  return withoutControlCharacters
+    .replace(/[<>:"/\\|?*]/g, "_")
     .replace(/\s+/g, " ")
     .slice(0, 120);
 }
