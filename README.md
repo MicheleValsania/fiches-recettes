@@ -156,6 +156,12 @@ La landing pubblica offre accesso personale e creazione di una nuova organizzazi
 
 L'accesso ChefSide storico rimane disponibile dalla pagina di login e continua ad aprire esclusivamente il tenant configurato con `DEFAULT_TENANT_*`. Questo permette di migrare gradualmente gli utenti del campeggio verso account personali senza modificare le fiches esistenti.
 
+## Tutorial e primo accesso
+
+Gli account personali ricevono al primo accesso una visita guidata in cinque passaggi: nuova fiche, compilazione, fornitori, salvataggio ed export. La checklist viene aggiornata da azioni realmente eseguite e salvata in `user_onboarding_progress`, separatamente per utente e tenant.
+
+Il pulsante **Guida** resta disponibile per riaprire la checklist, ripetere la visita e consultare il centro assistenza trilingue. L'accesso storico ChefSide non avvia automaticamente il tour e conserva localmente l'eventuale avanzamento, perché non corrisponde ancora a un utente personale.
+
 ## Flusso prezzi (fornitori â†” fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.
 - Il listino supporta anche prezzo origine e unita origine per riferimento acquisti.

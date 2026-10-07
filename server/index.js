@@ -329,6 +329,17 @@ async function bootstrapSchema() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
         PRIMARY KEY (tenant_id, user_id)
       );
+
+      CREATE TABLE IF NOT EXISTS user_onboarding_progress (
+        tenant_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        completed_steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+        tour_seen BOOLEAN NOT NULL DEFAULT false,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (tenant_id, user_id),
+        FOREIGN KEY (tenant_id, user_id)
+          REFERENCES tenant_memberships(tenant_id, user_id) ON DELETE CASCADE
+      );
     `);
 
     await client.query(
@@ -542,6 +553,51 @@ app.get("/api/categories", async (req, res) => {
     [tenantId(req)]
   );
   res.json(rows);
+});
+
+const onboardingStepIds = new Set(["create", "compose", "suppliers", "save", "export"]);
+
+app.get("/api/onboarding", async (req, res) => {
+  if (!req.auth?.userId) {
+    res.json({ completedSteps: [], tourSeen: false, persisted: false });
+    return;
+  }
+  const { rows } = await pool.query(
+    `SELECT completed_steps AS "completedSteps", tour_seen AS "tourSeen"
+     FROM user_onboarding_progress
+     WHERE tenant_id = $1 AND user_id = $2`,
+    [tenantId(req), req.auth.userId]
+  );
+  res.json({
+    completedSteps: Array.isArray(rows[0]?.completedSteps) ? rows[0].completedSteps : [],
+    tourSeen: Boolean(rows[0]?.tourSeen),
+    persisted: true,
+  });
+});
+
+app.put("/api/onboarding", async (req, res) => {
+  if (!req.auth?.userId) {
+    res.json({ ok: true, persisted: false });
+    return;
+  }
+  const completedSteps = Array.from(
+    new Set(
+      (Array.isArray(req.body?.completedSteps) ? req.body.completedSteps : [])
+        .map((step) => String(step))
+        .filter((step) => onboardingStepIds.has(step))
+    )
+  );
+  const tourSeen = Boolean(req.body?.tourSeen);
+  await pool.query(
+    `INSERT INTO user_onboarding_progress (tenant_id, user_id, completed_steps, tour_seen)
+     VALUES ($1, $2, $3::jsonb, $4)
+     ON CONFLICT (tenant_id, user_id) DO UPDATE SET
+       completed_steps = EXCLUDED.completed_steps,
+       tour_seen = EXCLUDED.tour_seen,
+       updated_at = now()`,
+    [tenantId(req), req.auth.userId, JSON.stringify(completedSteps), tourSeen]
+  );
+  res.json({ ok: true, persisted: true });
 });
 
 app.post("/api/fiches", async (req, res) => {

@@ -487,6 +487,118 @@
   .portal * { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
 }
 
+.onboarding-launcher {
+  position: fixed;
+  z-index: 24;
+  right: 22px;
+  bottom: 22px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px 7px 7px;
+  border: 1px solid #18362f;
+  border-radius: 999px;
+  color: #18362f;
+  background: #fffdf7;
+  box-shadow: 5px 5px 0 #f4bd22;
+  cursor: pointer;
+}
+
+.onboarding-launcher > span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: white;
+  background: #18362f;
+  font: 700 17px "Fraunces", serif;
+}
+
+.onboarding-launcher strong { font-size: 13px; }
+.onboarding-launcher small { color: #718078; font-size: 11px; }
+
+.onboarding-backdrop {
+  position: fixed;
+  z-index: 50;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(13, 32, 28, 0.38);
+  backdrop-filter: blur(3px);
+}
+
+.onboarding-panel {
+  width: min(440px, 94vw);
+  height: 100%;
+  padding: 28px;
+  overflow-y: auto;
+  color: #18362f;
+  background: #f8f2e7;
+  box-shadow: -18px 0 50px rgba(13, 32, 28, 0.18);
+  animation: onboarding-slide 260ms ease-out both;
+}
+
+.onboarding-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.onboarding-panel-head > div { display: grid; gap: 3px; }
+.onboarding-panel-head span { color: #6c7d75; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.onboarding-panel-head strong { font: 700 38px "Fraunces", serif; }
+.onboarding-panel-head button { width: 40px; height: 40px; border: 1px solid rgba(24, 54, 47, 0.25); border-radius: 50%; color: #18362f; background: transparent; font-size: 24px; cursor: pointer; }
+
+.onboarding-progress { height: 5px; margin: 18px 0 26px; overflow: hidden; background: rgba(24, 54, 47, 0.13); }
+.onboarding-progress span { height: 100%; display: block; background: linear-gradient(90deg, #b9d437, #f4bd22); transition: width 300ms ease; }
+
+.onboarding-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid rgba(24, 54, 47, 0.2); }
+.onboarding-tabs button { padding: 13px 6px; border: 0; border-bottom: 3px solid transparent; color: #667a72; background: transparent; font-weight: 800; cursor: pointer; }
+.onboarding-tabs button.active { border-color: #f4bd22; color: #18362f; }
+
+.onboarding-checklist { display: grid; gap: 10px; padding-top: 22px; }
+.onboarding-checklist > button:not(.onboarding-tour-button) { display: flex; align-items: center; gap: 14px; padding: 13px; border: 1px solid rgba(24, 54, 47, 0.14); text-align: left; color: #18362f; background: rgba(255, 255, 255, 0.58); cursor: pointer; }
+.onboarding-checklist > button > span { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(24, 54, 47, 0.3); border-radius: 50%; font-size: 12px; font-weight: 800; }
+.onboarding-checklist > button > span.done { border-color: #42664d; color: white; background: #42664d; }
+.onboarding-checklist > button > div { display: grid; gap: 2px; }
+.onboarding-checklist > button strong { font-size: 14px; }
+.onboarding-checklist > button small { color: #78877f; font-size: 11px; }
+.onboarding-tour-button { min-height: 48px; margin-top: 8px; border: 1px solid #18362f; color: white; background: #18362f; font-weight: 800; cursor: pointer; box-shadow: 5px 5px 0 #f4bd22; }
+
+.onboarding-help { padding-top: 24px; }
+.onboarding-help h2 { margin: 0; font: 700 30px "Fraunces", serif; }
+.onboarding-help > p { margin: 8px 0 24px; color: #6b7d75; line-height: 1.55; }
+.onboarding-help details { border-top: 1px solid rgba(24, 54, 47, 0.18); }
+.onboarding-help details:last-child { border-bottom: 1px solid rgba(24, 54, 47, 0.18); }
+.onboarding-help summary { padding: 17px 2px; font-weight: 800; cursor: pointer; }
+.onboarding-help details p { margin: -4px 0 18px; color: #5e7169; line-height: 1.6; }
+
+.tour-layer { position: fixed; z-index: 70; inset: 0; pointer-events: none; }
+.tour-dim { position: absolute; inset: 0; background: rgba(8, 24, 20, 0.72); }
+.tour-spotlight { position: fixed; border: 3px solid #f4bd22; border-radius: 8px; box-shadow: 0 0 0 9999px rgba(8, 24, 20, 0.72), 0 0 0 7px rgba(244, 189, 34, 0.22); transition: inset 220ms ease, width 220ms ease, height 220ms ease; }
+.tour-card { position: fixed; right: 24px; bottom: 24px; width: min(430px, calc(100vw - 32px)); padding: 25px; border: 1px solid #18362f; color: #18362f; background: #fffdf7; box-shadow: 9px 9px 0 #b9d437; pointer-events: auto; }
+.tour-counter { color: #8a730f; font-size: 11px; font-weight: 900; letter-spacing: 0.12em; }
+.tour-card h2 { margin: 12px 0 8px; font: 700 29px "Fraunces", serif; }
+.tour-card p { margin: 0 0 22px; color: #5f716a; line-height: 1.6; }
+.tour-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tour-actions > div { display: flex; gap: 8px; }
+.tour-actions button { min-height: 39px; padding: 0 13px; border: 1px solid rgba(24, 54, 47, 0.28); color: #18362f; background: transparent; font-weight: 800; cursor: pointer; }
+.tour-actions .tour-next { border-color: #18362f; color: white; background: #18362f; }
+
+@keyframes onboarding-slide { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+@media (max-width: 640px) {
+  .onboarding-launcher { right: 14px; bottom: 14px; }
+  .onboarding-launcher strong { display: none; }
+  .onboarding-panel { width: 100%; padding: 22px 18px; }
+  .tour-card { right: 16px; bottom: 16px; padding: 20px; }
+  .tour-card h2 { font-size: 25px; }
+  .tour-actions { align-items: stretch; flex-direction: column; }
+  .tour-actions > div { justify-content: flex-end; }
+}
+
 .compact-toggle {
   min-height: 38px;
   padding: 8px 14px;

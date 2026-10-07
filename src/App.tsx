@@ -7,12 +7,22 @@ import type { FicheTechnique } from "./types/fiche";
 import FicheForm from "./components/FicheForm";
 import FichePreview from "./components/FichePreview";
 import AuthPortal from "./components/AuthPortal";
+import OnboardingHub, {
+  type OnboardingState,
+  type OnboardingStepId,
+} from "./components/OnboardingHub";
 import { getInitialLang, LANG_STORAGE_KEY, localeByLang, t, type Lang } from "./i18n";
 import { downloadBlob, downloadJson, readJsonFile, safeFilename } from "./utils/exporters";
 import { buildExportEnvelopeV11 } from "./utils/exportV11";
 import { exportElementToA4Pdf, exportSupplierOrderListPdf, renderElementToA4PdfBlob } from "./utils/pdf";
 import { createZipBlob } from "./utils/zip";
-import { API_AUTH_EXPIRED_EVENT, checkApiAccess } from "./utils/apiBase";
+import {
+  API_AUTH_EXPIRED_EVENT,
+  checkApiSession,
+  loadOnboardingProgress,
+  saveOnboardingProgress,
+  type ApiSession,
+} from "./utils/apiBase";
 import {
   deleteFicheFromDb,
   listFichesFromDb,
@@ -94,6 +104,9 @@ export default function App() {
   });
   const [authState, setAuthState] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
   const [authError, setAuthError] = useState("");
+  const [apiSession, setApiSession] = useState<ApiSession | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingState>({ completedSteps: [], tourSeen: false });
+  const [onboardingLoaded, setOnboardingLoaded] = useState(false);
   const [fiche, setFiche] = useState<FicheTechnique>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -120,18 +133,21 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    void checkApiAccess().then((result) => {
+    void checkApiSession().then((result) => {
       if (!active) return;
-      if (result === "ok") {
+      if (result.status === "ok") {
+        setApiSession(result.session);
         setAuthState("authenticated");
         setAuthError("");
       } else {
+        setApiSession(null);
         setAuthState("unauthenticated");
-        if (result === "offline") setAuthError(t(lang, "auth.offline"));
+        if (result.status === "offline") setAuthError(t(lang, "auth.offline"));
       }
     });
 
     const handleExpiredSession = () => {
+      setApiSession(null);
       setAuthState("unauthenticated");
       setAuthError(t(lang, "auth.sessionExpired"));
     };
@@ -141,6 +157,34 @@ export default function App() {
       window.removeEventListener(API_AUTH_EXPIRED_EVENT, handleExpiredSession);
     };
   }, [lang]);
+
+  useEffect(() => {
+    if (authState !== "authenticated" || !apiSession) return;
+    let active = true;
+    const storageKey = `fiches-recettes:onboarding:${apiSession.tenant.id}:${apiSession.user?.id || "legacy"}`;
+    void loadOnboardingProgress()
+      .then((progress) => {
+        if (!active) return;
+        if (progress.persisted) {
+          setOnboarding({
+            completedSteps: progress.completedSteps as OnboardingStepId[],
+            tourSeen: progress.tourSeen,
+          });
+        } else {
+          const local = localStorage.getItem(storageKey);
+          setOnboarding(local ? JSON.parse(local) : { completedSteps: [], tourSeen: true });
+        }
+      })
+      .catch(() => {
+        if (active) setOnboarding({ completedSteps: [], tourSeen: true });
+      })
+      .finally(() => {
+        if (active) setOnboardingLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [apiSession, authState]);
 
   const previewRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -190,6 +234,32 @@ export default function App() {
   >([]);
   const [allProductsQuery, setAllProductsQuery] = useState("");
   const [priceIndex, setPriceIndex] = useState<PriceIndex>({ byProductId: {}, bySupplierKey: {} });
+
+  const updateOnboarding = (next: OnboardingState) => {
+    setOnboarding(next);
+    if (!apiSession) return;
+    if (apiSession.user) {
+      void saveOnboardingProgress(next).catch(() => undefined);
+      return;
+    }
+    const storageKey = `fiches-recettes:onboarding:${apiSession.tenant.id}:legacy`;
+    localStorage.setItem(storageKey, JSON.stringify(next));
+  };
+
+  const completeOnboardingStep = (step: OnboardingStepId) => {
+    if (onboarding.completedSteps.includes(step)) return;
+    updateOnboarding({ ...onboarding, completedSteps: [...onboarding.completedSteps, step] });
+  };
+
+  const onFicheChange = (next: FicheTechnique) => {
+    setFiche(next);
+    if (
+      next.title.trim() ||
+      next.ingredients.some((ingredient) => ingredient.name.trim() || ingredient.qty.trim())
+    ) {
+      completeOnboardingStep("compose");
+    }
+  };
 
   const onGlobalKeyDown = useEffectEvent((event: KeyboardEvent) => {
     const target = event.target as HTMLElement | null;
@@ -255,6 +325,7 @@ export default function App() {
   async function onExportPdfOneClick() {
     if (!previewRef.current) return;
     await exportElementToA4Pdf(previewRef.current, `${fileNameBase}.pdf`);
+    completeOnboardingStep("export");
   }
 
   async function onExportSupplierOrderPdf() {
@@ -297,6 +368,7 @@ export default function App() {
       await saveFicheToDb(fiche);
       lastDbSnapshotRef.current = JSON.stringify(fiche);
       setDbStatus(t(lang, "status.savedDb"));
+      completeOnboardingStep("save");
     } catch {
       setDbStatus(t(lang, "status.dbServerError"));
     } finally {
@@ -983,6 +1055,7 @@ export default function App() {
       setSupplierQuery("");
       setView("suppliers");
       setDbStatus("");
+      completeOnboardingStep("suppliers");
     } catch {
       setDbStatus(t(lang, "status.suppliersLoadError"));
     } finally {
@@ -1466,12 +1539,14 @@ export default function App() {
 
         <div className="toolbar">
           <button
+            data-tour="new-fiche"
             className={`btn btn-outline nav-btn ${view === "editor" ? "nav-btn--active" : ""}`}
             onClick={() => {
               setFiche(newFiche());
               setEditorNavContext(null);
               setView("editor");
               setDbStatus("");
+              completeOnboardingStep("create");
             }}
           >
             {t(lang, "app.newFiche")}
@@ -1486,6 +1561,7 @@ export default function App() {
           </button>
 
           <button
+            data-tour="suppliers"
             className={`btn btn-outline nav-btn ${view === "suppliers" || view === "supplierDetail" ? "nav-btn--active" : ""}`}
             onClick={onOpenSuppliers}
             disabled={dbBusy}
@@ -1503,7 +1579,7 @@ export default function App() {
 
           {view === "editor" ? (
             <div className="fiche-actions">
-              <button className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>
+              <button data-tour="save-fiche" className="btn btn-outline btn-fiche" onClick={onSaveDb} disabled={dbBusy}>
                 {t(lang, "app.saveDb")}
               </button>
               <div className="fiche-nav-group">
@@ -1534,15 +1610,27 @@ export default function App() {
                 ) : null}
               </div>
 
-              <button className="btn btn-outline btn-fiche" onClick={() => window.print()}>
+              <button
+                className="btn btn-outline btn-fiche"
+                onClick={() => {
+                  completeOnboardingStep("export");
+                  window.print();
+                }}
+              >
                 {t(lang, "app.print")}
               </button>
 
-              <button className="btn btn-outline btn-fiche" onClick={onExportPdfOneClick}>
+              <button data-tour="export-fiche" className="btn btn-outline btn-fiche" onClick={onExportPdfOneClick}>
                 {t(lang, "app.exportPdf")}
               </button>
 
-              <button className="btn btn-outline btn-fiche" onClick={() => downloadJson(fiche, `${fileNameBase}.json`)}>
+              <button
+                className="btn btn-outline btn-fiche"
+                onClick={() => {
+                  downloadJson(fiche, `${fileNameBase}.json`);
+                  completeOnboardingStep("export");
+                }}
+              >
                 {t(lang, "app.exportJson")}
               </button>
 
@@ -1584,11 +1672,11 @@ export default function App() {
       <main className="layout">
         {view === "editor" ? (
           <>
-            <section className="editor">
+            <section className="editor" data-tour="fiche-editor">
               <FicheForm
                 fiche={fiche}
                 lang={lang}
-                onChange={setFiche}
+                onChange={onFicheChange}
                 getPriceForIngredient={getPriceForIngredient}
                 onPriceIndexRefresh={(ingredients) => rebuildPriceIndex(ingredients ?? fiche.ingredients)}
               />
@@ -2139,6 +2227,14 @@ export default function App() {
         )}
       </main>
     </div>
+      {onboardingLoaded ? (
+        <OnboardingHub
+          lang={lang}
+          progress={onboarding}
+          autoStart={Boolean(apiSession?.user) && !onboarding.tourSeen}
+          onChange={updateOnboarding}
+        />
+      ) : null}
     </div>
   );
 }

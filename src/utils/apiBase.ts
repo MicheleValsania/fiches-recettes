@@ -14,6 +14,19 @@ const API_TOKEN_KEY = "fiches-recettes:api-session";
 export const API_AUTH_EXPIRED_EVENT = "fiches-recettes:auth-expired";
 
 export type ApiAccessResult = "ok" | "unauthorized" | "offline";
+export type ApiSession = {
+  tenant: { id: string; slug: string; name: string };
+  user: { id: string; role: string } | null;
+  registrationEnabled: boolean;
+};
+export type ApiSessionResult =
+  | { status: "ok"; session: ApiSession }
+  | { status: "unauthorized" | "offline"; session: null };
+export type OnboardingProgress = {
+  completedSteps: string[];
+  tourSeen: boolean;
+  persisted: boolean;
+};
 export type AuthFailureReason =
   | "unauthorized"
   | "offline"
@@ -65,15 +78,49 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
   return response;
 }
 
-export async function checkApiAccess(): Promise<ApiAccessResult> {
+export async function checkApiSession(): Promise<ApiSessionResult> {
   try {
     const response = await fetch(`${API_BASE}/auth/status`, { headers: tokenHeaders() });
-    if (!response.ok) return response.status === 401 ? "unauthorized" : "offline";
+    if (!response.ok) {
+      return { status: response.status === 401 ? "unauthorized" : "offline", session: null };
+    }
     const body = await response.json();
-    return body?.authenticated ? "ok" : "unauthorized";
+    if (!body?.authenticated || !body?.tenant?.id) return { status: "unauthorized", session: null };
+    return {
+      status: "ok",
+      session: {
+        tenant: body.tenant,
+        user: body.user?.id ? body.user : null,
+        registrationEnabled: Boolean(body.registrationEnabled),
+      },
+    };
   } catch {
-    return "offline";
+    return { status: "offline", session: null };
   }
+}
+
+export async function checkApiAccess(): Promise<ApiAccessResult> {
+  return (await checkApiSession()).status;
+}
+
+export async function loadOnboardingProgress(): Promise<OnboardingProgress> {
+  const response = await apiFetch(`${API_BASE}/onboarding`);
+  if (!response.ok) throw new Error("onboarding_load_failed");
+  const body = await response.json();
+  return {
+    completedSteps: Array.isArray(body?.completedSteps) ? body.completedSteps.map(String) : [],
+    tourSeen: Boolean(body?.tourSeen),
+    persisted: Boolean(body?.persisted),
+  };
+}
+
+export async function saveOnboardingProgress(progress: Pick<OnboardingProgress, "completedSteps" | "tourSeen">) {
+  const response = await apiFetch(`${API_BASE}/onboarding`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(progress),
+  });
+  if (!response.ok) throw new Error("onboarding_save_failed");
 }
 
 async function authenticate(path: string, body: object): Promise<AuthActionResult> {
