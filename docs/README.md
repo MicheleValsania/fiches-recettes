@@ -1,10 +1,11 @@
 ﻿# Documentation Index
 
-Last updated: 2026-02-26
+Last updated: 2026-10-07
 
 This folder is the single source of truth for product, operations, data contracts, and roadmap.
 
 ## Core docs
+- `CURRENT_STATUS.md`: verified production snapshot, deployed capabilities, data safety, and known gaps.
 - `00_PRODUCT_SCOPE.md`: product scope, target users, principles, in/out of scope.
 - `01_OPERATIONS_RUNBOOK.md`: local setup, daily operations, backup/import/export, troubleshooting.
 - `02_DATA_MODEL_AND_CONTRACTS.md`: fiche data model and field-level semantics (HACCP/storage/label).

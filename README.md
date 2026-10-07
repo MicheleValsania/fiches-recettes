@@ -3,6 +3,8 @@
 App per creare e stampare fiche tecniche con ingredienti, procedura e food cost.  
 Include una libreria fiches, gestione fornitori con listini prezzi e calcolo costi automatico.
 
+> **Stato del progetto:** consulta [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) per la fotografia verificata della produzione, dei tenant, dei backup e degli sviluppi ancora mancanti.
+
 ## Funzionalità 
 - Editor fiche con anteprima A4 pronta per stampa
 - Import/export JSON e export PDF
@@ -90,24 +92,11 @@ PGPASSWORD=postgres
 PGDATABASE=fiches
 ```
 
-## Setup multi-utente (Postgres + server)
-Questa modalita richiede un po' di competenza tecnica. In sintesi:
+## Setup multi-utente
 
-1. Metti Postgres su un server o VM accessibile in rete (non su localhost).
-2. Avvia il backend su una macchina raggiungibile dai client.
-3. Configura le variabili d'ambiente del backend:
-```
-PGHOST=ip_o_host_del_server
-PGPORT=5432
-PGUSER=postgres
-PGPASSWORD=postgres
-PGDATABASE=fiches
-PORT=3001
-```
-4. Consenti l'accesso di rete al backend (firewall) e aggiungi autenticazione se serve.
-5. Dal client, imposta l'API base (se necessario) verso l'indirizzo del backend.
+La produzione e gia multi-tenant: frontend su Netlify, backend e PostgreSQL su Railway. Ogni account personale opera nel tenant indicato dalla sessione firmata; le nuove iscrizioni creano un'organizzazione isolata. L'accesso storico ChefSide resta associato ai dati del campeggio.
 
-Nota: con l'assetto attuale l'app e il DB sono locali su `localhost`, quindi single-user.
+Per configurazione, modalita di accesso, stato dei dati e limiti ancora presenti, consulta [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md). Per l'esercizio quotidiano e il ripristino usa [`docs/01_OPERATIONS_RUNBOOK.md`](docs/01_OPERATIONS_RUNBOOK.md).
 
 ## Reset DB (per test)
 Il reset e disabilitato per impostazione predefinita e la route non viene registrata. Per abilitarlo temporaneamente servono entrambe le variabili server `ALLOW_DB_RESET=true` e `DB_RESET_TOKEN`.
