@@ -132,12 +132,21 @@ In produzione il backend richiede:
 - `AUTH_TOKEN_SECRET`: segreto casuale usato per firmare sessioni temporanee (8 ore per impostazione predefinita).
 - `FICHES_SERVICE_TOKEN`: segreto separato per le richieste server-to-server provenienti da CookOps.
 - `CORS_ALLOWED_ORIGINS`: origini frontend autorizzate, separate da virgola.
+- `DEFAULT_TENANT_ID`, `DEFAULT_TENANT_SLUG`, `DEFAULT_TENANT_NAME`: identita stabile dell'organizzazione associata ai dati storici.
 
 Il browser conserva soltanto il token temporaneo in `sessionStorage`; la password non viene salvata. Il server rifiuta sempre di avviarsi senza i segreti obbligatori. Per lo sviluppo locale senza autenticazione bisogna impostare esplicitamente `AUTH_DISABLED=true`.
 
 Il rate limiting del login e conservato in memoria ed e adeguato all'attuale singola istanza Railway. Prima di aumentare il numero di repliche va spostato su uno storage condiviso, per esempio Redis.
 
 CookOps deve usare lo stesso valore del token di servizio nella propria variabile `FICHES_API_SERVICE_TOKEN`.
+
+## Isolamento multi-tenant
+
+Il database associa fiches, categorie, fornitori e prodotti fornitore a un `tenant_id`. Al primo avvio della versione multi-tenant, la migrazione crea il tenant configurato e assegna a quel tenant tutti i dati storici privi di organizzazione. L'operazione avviene in una transazione: in caso di errore non viene applicata parzialmente.
+
+Il tenant delle richieste viene ricavato dalla sessione firmata o dal token di servizio; non viene accettato dal payload o dai parametri inviati dal browser. Le route applicative filtrano letture e scritture per tenant. I valori `DEFAULT_TENANT_*` devono rimanere invariati dopo la prima migrazione per non creare una seconda organizzazione involontaria.
+
+Le tabelle `app_users` e `tenant_memberships` preparano l'accesso futuro di utenti e organizzazioni multiple. L'interfaccia corrente continua a usare l'accesso ChefSide esistente e il tenant storico, senza modificare il flusso di lavoro quotidiano.
 
 ## Flusso prezzi (fornitori â†” fiche)
 - Inserisci fornitore e prodotto in fiche: il prodotto viene creato/aggiornato nel listino.

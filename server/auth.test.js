@@ -21,12 +21,14 @@ test("session tokens are signed and expire", () => {
   const auth = createAuth({
     password: "a-long-password",
     tokenSecret: "a-separate-signing-secret",
+    tenantId: "tenant-france",
     tokenTtlSeconds: 60,
     now: () => timestamp,
   });
   const session = auth.issueSessionToken();
 
   assert.equal(auth.verifySessionToken(session.token), true);
+  assert.equal(auth.readSessionToken(session.token).tenantId, "tenant-france");
   assert.equal(auth.verifySessionToken(`${session.token}tampered`), false);
   timestamp += 61_000;
   assert.equal(auth.verifySessionToken(session.token), false);
@@ -37,6 +39,7 @@ test("browser sessions and service tokens authorize independently", () => {
     password: "browser-password",
     tokenSecret: "signing-secret",
     serviceToken: "cookops-service-token",
+    tenantId: "tenant-france",
   });
   const session = auth.issueSessionToken();
 
@@ -49,6 +52,19 @@ test("browser sessions and service tokens authorize independently", () => {
     auth.requestIsAuthorized(requestWith({ "x-service-token": "cookops-service-token" })),
     true
   );
+  assert.deepEqual(
+    auth.requestAuth(requestWith({ "x-service-token": "cookops-service-token" })),
+    { tenantId: "tenant-france", kind: "service" }
+  );
+});
+
+test("tokens cannot be reused by another tenant", () => {
+  const france = createAuth({ password: "password", tokenSecret: "shared-secret", tenantId: "tenant-france" });
+  const italy = createAuth({ password: "password", tokenSecret: "shared-secret", tenantId: "tenant-italy" });
+  const session = france.issueSessionToken();
+
+  assert.equal(france.verifySessionToken(session.token), true);
+  assert.equal(italy.verifySessionToken(session.token), false);
 });
 
 test("login attempt tracking blocks repeated failures and resets after success", () => {

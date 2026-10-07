@@ -10,6 +10,9 @@ const authDisabled = process.env.AUTH_DISABLED === "true";
 const appPassword = (process.env.APP_PASSWORD || "").trim();
 const authTokenSecret = (process.env.AUTH_TOKEN_SECRET || "").trim();
 const serviceToken = (process.env.FICHES_SERVICE_TOKEN || "").trim();
+const defaultTenantId = (process.env.DEFAULT_TENANT_ID || "00000000-0000-4000-8000-000000000001").trim();
+const defaultTenantSlug = (process.env.DEFAULT_TENANT_SLUG || "chefside-france").trim();
+const defaultTenantName = (process.env.DEFAULT_TENANT_NAME || "ChefSide France").trim();
 const allowDbReset = process.env.ALLOW_DB_RESET === "true";
 const dbResetToken = (process.env.DB_RESET_TOKEN || "").trim();
 const requestedTokenTtl = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 8 * 60 * 60);
@@ -23,6 +26,9 @@ if (!authDisabled && !appPassword) {
 if (!authDisabled && !serviceToken) {
   throw new Error("FICHES_SERVICE_TOKEN is required unless AUTH_DISABLED=true.");
 }
+if (!defaultTenantId || !defaultTenantSlug || !defaultTenantName) {
+  throw new Error("DEFAULT_TENANT_ID, DEFAULT_TENANT_SLUG and DEFAULT_TENANT_NAME cannot be empty.");
+}
 if (allowDbReset && !dbResetToken) {
   throw new Error("DB_RESET_TOKEN is required when ALLOW_DB_RESET=true.");
 }
@@ -31,6 +37,7 @@ const auth = createAuth({
   password: authDisabled ? "" : appPassword,
   tokenSecret: authTokenSecret,
   serviceToken: authDisabled ? "" : serviceToken,
+  tenantId: defaultTenantId,
   tokenTtlSeconds,
 });
 const loginAttempts = createLoginAttemptTracker();
@@ -67,11 +74,15 @@ app.use((_req, res, next) => {
 });
 
 app.get("/api/auth/status", (req, res) => {
+  const authContext = auth.requestAuth(req);
   res.set("Cache-Control", "no-store");
   res.json({
     ok: true,
     authRequired: auth.authRequired,
-    authenticated: auth.requestIsAuthorized(req),
+    authenticated: Boolean(authContext),
+    tenant: authContext
+      ? { id: authContext.tenantId, slug: defaultTenantSlug, name: defaultTenantName }
+      : null,
   });
 });
 
@@ -98,17 +109,33 @@ app.post("/api/auth/login", (req, res) => {
 
   loginAttempts.reset(clientKey);
   const session = auth.issueSessionToken();
-  res.json({ ok: true, authRequired: true, ...session });
+  res.json({
+    ok: true,
+    authRequired: true,
+    tenant: { id: defaultTenantId, slug: defaultTenantSlug, name: defaultTenantName },
+    ...session,
+  });
 });
 
 app.use("/api", (req, res, next) => {
-  if (req.path === "/health" || auth.requestIsAuthorized(req)) {
+  if (req.path === "/health") {
+    next();
+    return;
+  }
+  const authContext = auth.requestAuth(req);
+  if (authContext) {
+    req.auth = authContext;
     next();
     return;
   }
   res.set("Cache-Control", "no-store");
   res.status(401).json({ ok: false, error: "unauthorized" });
 });
+
+function tenantId(req) {
+  if (!req.auth?.tenantId) throw new Error("Authenticated request is missing tenant context.");
+  return req.auth.tenantId;
+}
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -119,88 +146,202 @@ const pool = new Pool({
   database: process.env.PGDATABASE || "fiches",
 });
 
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS fiches (
-    id TEXT PRIMARY KEY,
-    title TEXT,
-    data JSONB NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL
+async function bootstrapSchema() {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenants (
+        id TEXT PRIMARY KEY,
+        slug TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS app_users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        display_name TEXT,
+        password_hash TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS tenant_memberships (
+        tenant_id TEXT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'editor', 'viewer')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (tenant_id, user_id)
+      );
+    `);
+
+    await client.query(
+      `INSERT INTO tenants (id, slug, name)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug, name = EXCLUDED.name, updated_at = now()`,
+      [defaultTenantId, defaultTenantSlug, defaultTenantName]
+    );
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fiches (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        title TEXT,
+        data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS supplier_products (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        source_code TEXT,
+        source_price NUMERIC,
+        source_unit TEXT,
+        unit_price NUMERIC,
+        unit TEXT,
+        updated_at TIMESTAMPTZ NOT NULL,
+        UNIQUE (supplier_id, name)
+      );
+
+      CREATE TABLE IF NOT EXISTS categories (
+        tenant_id TEXT NOT NULL,
+        id TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        point_vente TEXT NOT NULL DEFAULT 'commun',
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (tenant_id, id)
+      );
+    `);
+
+    await client.query(`
+      ALTER TABLE fiches ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+      ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+      ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+      ALTER TABLE categories ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+      ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS source_code TEXT;
+      ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS source_price NUMERIC;
+      ALTER TABLE supplier_products ADD COLUMN IF NOT EXISTS source_unit TEXT;
+    `);
+
+    await client.query("UPDATE fiches SET tenant_id = $1 WHERE tenant_id IS NULL", [defaultTenantId]);
+    await client.query("UPDATE suppliers SET tenant_id = $1 WHERE tenant_id IS NULL", [defaultTenantId]);
+    await client.query(
+      `UPDATE supplier_products AS product
+       SET tenant_id = supplier.tenant_id
+       FROM suppliers AS supplier
+       WHERE product.supplier_id = supplier.id AND product.tenant_id IS NULL`
+    );
+    await client.query("UPDATE supplier_products SET tenant_id = $1 WHERE tenant_id IS NULL", [defaultTenantId]);
+    await client.query("UPDATE categories SET tenant_id = $1 WHERE tenant_id IS NULL", [defaultTenantId]);
+
+    await client.query(`
+      ALTER TABLE fiches ALTER COLUMN tenant_id SET NOT NULL;
+      ALTER TABLE suppliers ALTER COLUMN tenant_id SET NOT NULL;
+      ALTER TABLE supplier_products ALTER COLUMN tenant_id SET NOT NULL;
+      ALTER TABLE categories ALTER COLUMN tenant_id SET NOT NULL;
+
+      ALTER TABLE suppliers DROP CONSTRAINT IF EXISTS suppliers_name_key;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS suppliers_tenant_name_key ON suppliers (tenant_id, name);
+      CREATE UNIQUE INDEX IF NOT EXISTS suppliers_tenant_id_key ON suppliers (tenant_id, id);
+      CREATE UNIQUE INDEX IF NOT EXISTS supplier_products_tenant_supplier_name_key
+        ON supplier_products (tenant_id, supplier_id, name);
+      CREATE INDEX IF NOT EXISTS fiches_tenant_updated_idx ON fiches (tenant_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS supplier_products_tenant_idx ON supplier_products (tenant_id, supplier_id);
+    `);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conrelid = 'categories'::regclass
+            AND contype = 'p'
+            AND pg_get_constraintdef(oid) = 'PRIMARY KEY (tenant_id, id)'
+        ) THEN
+          ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_pkey;
+          ALTER TABLE categories ADD CONSTRAINT categories_pkey PRIMARY KEY (tenant_id, id);
+        END IF;
+      END $$;
+    `);
+
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fiches_tenant_fk') THEN
+          ALTER TABLE fiches ADD CONSTRAINT fiches_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'suppliers_tenant_fk') THEN
+          ALTER TABLE suppliers ADD CONSTRAINT suppliers_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supplier_products_tenant_fk') THEN
+          ALTER TABLE supplier_products ADD CONSTRAINT supplier_products_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'categories_tenant_fk') THEN
+          ALTER TABLE categories ADD CONSTRAINT categories_tenant_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'supplier_products_tenant_supplier_fk') THEN
+          ALTER TABLE supplier_products
+          ADD CONSTRAINT supplier_products_tenant_supplier_fk
+          FOREIGN KEY (tenant_id, supplier_id) REFERENCES suppliers(tenant_id, id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `);
+
+    await seedCategories(client, defaultTenantId);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function seedCategories(client, targetTenantId) {
+  await client.query(
+    `INSERT INTO categories (tenant_id, id, display_name, point_vente, sort_order) VALUES
+      ($1, 'base', 'Base', 'commun', 1),
+      ($1, 'base_dessert', 'Base dessert', 'commun', 2),
+      ($1, 'sauce', 'Sauce', 'commun', 3),
+      ($1, 'entree', 'Entree', 'ristorante', 10),
+      ($1, 'plat_pates', 'Pates & Risotto', 'ristorante', 11),
+      ($1, 'plat_poisson', 'Poisson', 'ristorante', 12),
+      ($1, 'plat_viande', 'Viande', 'ristorante', 13),
+      ($1, 'plat_vegetarien', 'Vegetarien', 'ristorante', 14),
+      ($1, 'pizza', 'Pizza', 'ristorante', 15),
+      ($1, 'dessert', 'Dessert', 'ristorante', 16),
+      ($1, 'accompagnement', 'Accompagnement', 'ristorante', 17),
+      ($1, 'snack_sandwich_froid', 'Sandwich froid', 'snack_bar', 20),
+      ($1, 'snack_sandwich_chaud', 'Sandwich chaud', 'snack_bar', 21),
+      ($1, 'snack_wrap_tacos', 'Wrap & Tacos', 'snack_bar', 22),
+      ($1, 'snack_burger', 'Burger', 'snack_bar', 23),
+      ($1, 'snack_assiette', 'Assiette', 'snack_bar', 24),
+      ($1, 'snack_salade_bowl', 'Salade & Bowl', 'snack_bar', 25),
+      ($1, 'snack_dessert', 'Dessert snack', 'snack_bar', 26),
+      ($1, 'snack_petit_dejeuner', 'Petit dejeuner', 'snack_bar', 27),
+      ($1, 'snack_patate', 'Patate', 'snack_bar', 28)
+     ON CONFLICT (tenant_id, id) DO NOTHING`,
+    [targetTenantId]
   );
-`);
+}
 
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS suppliers (
-    id TEXT PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL
-  );
-`);
-
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS supplier_products (
-    id TEXT PRIMARY KEY,
-    supplier_id TEXT NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    source_code TEXT,
-    source_price NUMERIC,
-    source_unit TEXT,
-    unit_price NUMERIC,
-    unit TEXT,
-    updated_at TIMESTAMPTZ NOT NULL,
-    UNIQUE (supplier_id, name)
-  );
-`);
-
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS categories (
-    id TEXT PRIMARY KEY,
-    display_name TEXT NOT NULL,
-    point_vente TEXT NOT NULL DEFAULT 'commun',
-    sort_order INTEGER NOT NULL DEFAULT 0
-  );
-`);
-
-await pool.query(`
-  INSERT INTO categories (id, display_name, point_vente, sort_order) VALUES
-    ('base', 'Base', 'commun', 1),
-    ('base_dessert', 'Base dessert', 'commun', 2),
-    ('sauce', 'Sauce', 'commun', 3),
-    ('entree', 'Entree', 'ristorante', 10),
-    ('plat_pates', 'Pates & Risotto', 'ristorante', 11),
-    ('plat_poisson', 'Poisson', 'ristorante', 12),
-    ('plat_viande', 'Viande', 'ristorante', 13),
-    ('plat_vegetarien', 'Vegetarien', 'ristorante', 14),
-    ('pizza', 'Pizza', 'ristorante', 15),
-    ('dessert', 'Dessert', 'ristorante', 16),
-    ('accompagnement', 'Accompagnement', 'ristorante', 17),
-    ('snack_sandwich_froid', 'Sandwich froid', 'snack_bar', 20),
-    ('snack_sandwich_chaud', 'Sandwich chaud', 'snack_bar', 21),
-    ('snack_wrap_tacos', 'Wrap & Tacos', 'snack_bar', 22),
-    ('snack_burger', 'Burger', 'snack_bar', 23),
-    ('snack_assiette', 'Assiette', 'snack_bar', 24),
-    ('snack_salade_bowl', 'Salade & Bowl', 'snack_bar', 25),
-    ('snack_dessert', 'Dessert snack', 'snack_bar', 26),
-    ('snack_petit_dejeuner', 'Petit dejeuner', 'snack_bar', 27),
-    ('snack_patate', 'Patate', 'snack_bar', 28)
-  ON CONFLICT (id) DO NOTHING;
-`);
-
-await pool.query(`
-  ALTER TABLE supplier_products
-  ADD COLUMN IF NOT EXISTS source_code TEXT;
-`);
-
-await pool.query(`
-  ALTER TABLE supplier_products
-  ADD COLUMN IF NOT EXISTS source_price NUMERIC;
-`);
-
-await pool.query(`
-  ALTER TABLE supplier_products
-  ADD COLUMN IF NOT EXISTS source_unit TEXT;
-`);
+await bootstrapSchema();
 
 app.get("/api/health", async (_req, res) => {
   try {
@@ -211,23 +352,28 @@ app.get("/api/health", async (_req, res) => {
   }
 });
 
-app.get("/api/fiches", async (_req, res) => {
+app.get("/api/fiches", async (req, res) => {
   const { rows } = await pool.query(
-    "SELECT id, title, data->>'category' AS category, created_at AS \"createdAt\", updated_at AS \"updatedAt\" FROM fiches ORDER BY updated_at DESC"
+    `SELECT id, title, data->>'category' AS category,
+            created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM fiches
+     WHERE tenant_id = $1
+     ORDER BY updated_at DESC`,
+    [tenantId(req)]
   );
   res.json(rows);
 });
 
 app.get("/api/fiches/:id", async (req, res) => {
   const { rows } = await pool.query(
-    "SELECT data FROM fiches WHERE id = $1",
-    [req.params.id]
+    "SELECT data FROM fiches WHERE id = $1 AND tenant_id = $2",
+    [req.params.id, tenantId(req)]
   );
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
   res.json(rows[0].data);
 });
 
-app.get("/api/categories", async (_req, res) => {
+app.get("/api/categories", async (req, res) => {
   const { rows } = await pool.query(
     `
     SELECT id,
@@ -235,8 +381,10 @@ app.get("/api/categories", async (_req, res) => {
            point_vente AS "pointVente",
            sort_order AS "sortOrder"
     FROM categories
+    WHERE tenant_id = $1
     ORDER BY sort_order ASC, display_name ASC
-  `
+  `,
+    [tenantId(req)]
   );
   res.json(rows);
 });
@@ -250,23 +398,27 @@ app.post("/api/fiches", async (req, res) => {
   const updatedAt = fiche.updatedAt || now;
   const title = fiche.title || "";
 
-  await pool.query(
+  const { rows } = await pool.query(
     `
-    INSERT INTO fiches (id, title, data, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO fiches (id, tenant_id, title, data, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (id) DO UPDATE SET
       title = EXCLUDED.title,
       data = EXCLUDED.data,
-      updated_at = EXCLUDED.updated_at;
+      updated_at = EXCLUDED.updated_at
+    WHERE fiches.tenant_id = EXCLUDED.tenant_id
+    RETURNING id;
   `,
-    [fiche.id, title, fiche, createdAt, updatedAt]
+    [fiche.id, tenantId(req), title, fiche, createdAt, updatedAt]
   );
+
+  if (!rows[0]) return res.status(409).json({ error: "ID belongs to another tenant" });
 
   res.json({ ok: true });
 });
 
 app.delete("/api/fiches/:id", async (req, res) => {
-  await pool.query("DELETE FROM fiches WHERE id = $1", [req.params.id]);
+  await pool.query("DELETE FROM fiches WHERE id = $1 AND tenant_id = $2", [req.params.id, tenantId(req)]);
   res.json({ ok: true });
 });
 
@@ -277,31 +429,47 @@ if (allowDbReset) {
       res.status(403).json({ ok: false, error: "reset_forbidden" });
       return;
     }
+    const client = await pool.connect();
     try {
-      await pool.query("TRUNCATE TABLE fiches, supplier_products, suppliers RESTART IDENTITY CASCADE");
+      await client.query("BEGIN");
+      const targetTenantId = tenantId(req);
+      await client.query("DELETE FROM fiches WHERE tenant_id = $1", [targetTenantId]);
+      await client.query("DELETE FROM suppliers WHERE tenant_id = $1", [targetTenantId]);
+      await client.query("DELETE FROM categories WHERE tenant_id = $1", [targetTenantId]);
+      await seedCategories(client, targetTenantId);
+      await client.query("COMMIT");
       res.json({ ok: true });
     } catch {
+      await client.query("ROLLBACK");
       res.status(500).json({ ok: false });
+    } finally {
+      client.release();
     }
   });
 }
 
-app.get("/api/suppliers", async (_req, res) => {
+app.get("/api/suppliers", async (req, res) => {
   const { rows } = await pool.query(
-    "SELECT id, name, created_at AS \"createdAt\", updated_at AS \"updatedAt\" FROM suppliers ORDER BY name ASC"
+    `SELECT id, name, created_at AS "createdAt", updated_at AS "updatedAt"
+     FROM suppliers WHERE tenant_id = $1 ORDER BY name ASC`,
+    [tenantId(req)]
   );
   res.json(rows);
 });
 
 app.put("/api/suppliers/:id", async (req, res) => {
   const supplierId = req.params.id;
+  const targetTenantId = tenantId(req);
   const name = String(req.body?.name || "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows: existing } = await client.query("SELECT name FROM suppliers WHERE id = $1", [supplierId]);
+    const { rows: existing } = await client.query(
+      "SELECT name FROM suppliers WHERE id = $1 AND tenant_id = $2",
+      [supplierId, targetTenantId]
+    );
     if (!existing[0]) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Not found" });
@@ -314,10 +482,10 @@ app.put("/api/suppliers/:id", async (req, res) => {
       UPDATE suppliers
       SET name = $1,
           updated_at = $2
-      WHERE id = $3
+      WHERE id = $3 AND tenant_id = $4
       RETURNING id, name, created_at AS "createdAt", updated_at AS "updatedAt";
     `,
-      [name, now, supplierId]
+      [name, now, supplierId, targetTenantId]
     );
 
     await client.query(
@@ -348,9 +516,10 @@ app.put("/api/suppliers/:id", async (req, res) => {
         )
       ),
       updated_at = now()
-      WHERE data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $3::text || '%';
+      WHERE tenant_id = $4
+        AND (data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $3::text || '%');
     `,
-      [supplierId, name, oldName]
+      [supplierId, name, oldName, targetTenantId]
     );
 
     await client.query("COMMIT");
@@ -368,6 +537,7 @@ app.put("/api/suppliers/:id", async (req, res) => {
 });
 
 app.post("/api/suppliers", async (req, res) => {
+  const targetTenantId = tenantId(req);
   const name = String(req.body?.name || "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
 
@@ -376,22 +546,26 @@ app.post("/api/suppliers", async (req, res) => {
 
   const { rows } = await pool.query(
     `
-    INSERT INTO suppliers (id, name, created_at, updated_at)
-    VALUES ($1, $2, $3, $3)
-    ON CONFLICT (name) DO UPDATE SET updated_at = EXCLUDED.updated_at
+    INSERT INTO suppliers (id, tenant_id, name, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, $4)
+    ON CONFLICT (tenant_id, name) DO UPDATE SET updated_at = EXCLUDED.updated_at
     RETURNING id, name, created_at AS "createdAt", updated_at AS "updatedAt";
   `,
-    [id, name, now]
+    [id, targetTenantId, name, now]
   );
   res.json(rows[0]);
 });
 
 app.delete("/api/suppliers/:id", async (req, res) => {
   const supplierId = req.params.id;
+  const targetTenantId = tenantId(req);
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const { rows } = await client.query("SELECT id, name FROM suppliers WHERE id = $1", [supplierId]);
+    const { rows } = await client.query(
+      "SELECT id, name FROM suppliers WHERE id = $1 AND tenant_id = $2",
+      [supplierId, targetTenantId]
+    );
     if (!rows[0]) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Not found" });
@@ -423,12 +597,12 @@ app.delete("/api/suppliers/:id", async (req, res) => {
         )
       ),
       updated_at = now()
-      WHERE data::text LIKE '%' || $1 || '%';
+      WHERE tenant_id = $2 AND data::text LIKE '%' || $1 || '%';
     `,
-      [supplierId]
+      [supplierId, targetTenantId]
     );
 
-    await client.query("DELETE FROM suppliers WHERE id = $1", [supplierId]);
+    await client.query("DELETE FROM suppliers WHERE id = $1 AND tenant_id = $2", [supplierId, targetTenantId]);
     await client.query("COMMIT");
     res.json({ ok: true });
   } catch (err) {
@@ -440,6 +614,7 @@ app.delete("/api/suppliers/:id", async (req, res) => {
 });
 
 app.get("/api/suppliers/:id/products", async (req, res) => {
+  const targetTenantId = tenantId(req);
   const { rows } = await pool.query(
     `
     SELECT id,
@@ -452,16 +627,17 @@ app.get("/api/suppliers/:id/products", async (req, res) => {
            unit,
            updated_at AS "updatedAt"
     FROM supplier_products
-    WHERE supplier_id = $1
+    WHERE supplier_id = $1 AND tenant_id = $2
     ORDER BY name ASC
   `,
-    [req.params.id]
+    [req.params.id, targetTenantId]
   );
   res.json(rows);
 });
 
 app.post("/api/suppliers/:id/products", async (req, res) => {
   const supplierId = req.params.id;
+  const targetTenantId = tenantId(req);
   const name = String(req.body?.name || "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
 
@@ -473,11 +649,19 @@ app.post("/api/suppliers/:id/products", async (req, res) => {
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
 
+  const { rows: suppliers } = await pool.query(
+    "SELECT id FROM suppliers WHERE id = $1 AND tenant_id = $2",
+    [supplierId, targetTenantId]
+  );
+  if (!suppliers[0]) return res.status(404).json({ error: "Supplier not found" });
+
   const { rows } = await pool.query(
     `
-    INSERT INTO supplier_products (id, supplier_id, name, source_code, source_price, source_unit, unit_price, unit, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    ON CONFLICT (supplier_id, name) DO UPDATE SET
+    INSERT INTO supplier_products (
+      id, tenant_id, supplier_id, name, source_code, source_price, source_unit, unit_price, unit, updated_at
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    ON CONFLICT (tenant_id, supplier_id, name) DO UPDATE SET
       source_code = EXCLUDED.source_code,
       source_price = EXCLUDED.source_price,
       source_unit = EXCLUDED.source_unit,
@@ -494,7 +678,7 @@ app.post("/api/suppliers/:id/products", async (req, res) => {
               unit,
               updated_at AS "updatedAt";
   `,
-    [id, supplierId, name, supplierCode, sourcePrice, sourceUnit, unitPrice, unit, now]
+    [id, targetTenantId, supplierId, name, supplierCode, sourcePrice, sourceUnit, unitPrice, unit, now]
   );
   res.json(rows[0]);
 });
@@ -502,6 +686,7 @@ app.post("/api/suppliers/:id/products", async (req, res) => {
 app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
   const supplierId = req.params.id;
   const productId = req.params.productId;
+  const targetTenantId = tenantId(req);
   const supplierCode = req.body?.supplierCode ? String(req.body.supplierCode).trim() : null;
   const sourcePrice = req.body?.sourcePrice ?? null;
   const sourceUnit = req.body?.sourceUnit ? String(req.body.sourceUnit).trim() : null;
@@ -518,7 +703,7 @@ app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
         unit_price = $4,
         unit = $5,
         updated_at = $6
-    WHERE id = $7 AND supplier_id = $8
+    WHERE id = $7 AND supplier_id = $8 AND tenant_id = $9
     RETURNING id,
               supplier_id AS "supplierId",
               name,
@@ -529,7 +714,7 @@ app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
               unit,
               updated_at AS "updatedAt";
   `,
-    [supplierCode, sourcePrice, sourceUnit, unitPrice, unit, now, productId, supplierId]
+    [supplierCode, sourcePrice, sourceUnit, unitPrice, unit, now, productId, supplierId, targetTenantId]
   );
   if (!rows[0]) return res.status(404).json({ error: "Not found" });
   res.json(rows[0]);
@@ -538,6 +723,7 @@ app.put("/api/suppliers/:id/products/:productId", async (req, res) => {
 app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
   const supplierId = req.params.id;
   const productId = req.params.productId;
+  const targetTenantId = tenantId(req);
   const name = String(req.body?.name || "").trim();
   if (!name) return res.status(400).json({ error: "Missing name" });
 
@@ -545,8 +731,8 @@ app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
   try {
     await client.query("BEGIN");
     const { rows: existing } = await client.query(
-      "SELECT name FROM supplier_products WHERE id = $1 AND supplier_id = $2",
-      [productId, supplierId]
+      "SELECT name FROM supplier_products WHERE id = $1 AND supplier_id = $2 AND tenant_id = $3",
+      [productId, supplierId, targetTenantId]
     );
     if (!existing[0]) {
       await client.query("ROLLBACK");
@@ -560,7 +746,7 @@ app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
       UPDATE supplier_products
       SET name = $1,
           updated_at = $2
-      WHERE id = $3 AND supplier_id = $4
+      WHERE id = $3 AND supplier_id = $4 AND tenant_id = $5
       RETURNING id,
                 supplier_id AS "supplierId",
                 name,
@@ -571,7 +757,7 @@ app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
                 unit,
                 updated_at AS "updatedAt";
     `,
-      [name, now, productId, supplierId]
+      [name, now, productId, supplierId, targetTenantId]
     );
 
     await client.query(
@@ -602,9 +788,10 @@ app.put("/api/suppliers/:id/products/:productId/name", async (req, res) => {
         )
       ),
       updated_at = now()
-      WHERE data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $4::text || '%';
+      WHERE tenant_id = $5
+        AND (data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $4::text || '%');
     `,
-      [productId, name, supplierId, oldName]
+      [productId, name, supplierId, oldName, targetTenantId]
     );
 
     await client.query("COMMIT");
@@ -625,8 +812,8 @@ app.delete("/api/suppliers/:id/products/:productId", async (req, res) => {
   const supplierId = req.params.id;
   const productId = req.params.productId;
   await pool.query(
-    "DELETE FROM supplier_products WHERE id = $1 AND supplier_id = $2",
-    [productId, supplierId]
+    "DELETE FROM supplier_products WHERE id = $1 AND supplier_id = $2 AND tenant_id = $3",
+    [productId, supplierId, tenantId(req)]
   );
   res.json({ ok: true });
 });

@@ -12,16 +12,21 @@ export function createAuth({
   password = "",
   tokenSecret = "",
   serviceToken = "",
+  tenantId = "",
   tokenTtlSeconds = DEFAULT_TOKEN_TTL_SECONDS,
   now = () => Date.now(),
 } = {}) {
   const normalizedPassword = String(password).trim();
   const normalizedTokenSecret = String(tokenSecret).trim();
   const normalizedServiceToken = String(serviceToken).trim();
+  const normalizedTenantId = String(tenantId).trim();
   const authRequired = normalizedPassword.length > 0;
 
   if (authRequired && !normalizedTokenSecret) {
     throw new Error("AUTH_TOKEN_SECRET is required when APP_PASSWORD is configured.");
+  }
+  if (!normalizedTenantId) {
+    throw new Error("A tenantId is required for every authentication context.");
   }
 
   function sign(encodedPayload) {
@@ -32,7 +37,11 @@ export function createAuth({
     if (!authRequired) return null;
     const expiresAt = Math.floor(now() / 1000) + tokenTtlSeconds;
     const payload = Buffer.from(
-      JSON.stringify({ exp: expiresAt, nonce: crypto.randomBytes(16).toString("base64url") })
+      JSON.stringify({
+        exp: expiresAt,
+        tid: normalizedTenantId,
+        nonce: crypto.randomBytes(16).toString("base64url"),
+      })
     ).toString("base64url");
     return {
       token: `${payload}.${sign(payload)}`,
@@ -40,26 +49,31 @@ export function createAuth({
     };
   }
 
-  function verifySessionToken(token) {
-    if (!authRequired) return true;
-    if (!token || typeof token !== "string") return false;
+  function readSessionToken(token) {
+    if (!token || typeof token !== "string") return null;
     const [payload, signature, ...rest] = token.split(".");
-    if (!payload || !signature || rest.length > 0 || !safeEqual(signature, sign(payload))) return false;
+    if (!payload || !signature || rest.length > 0 || !safeEqual(signature, sign(payload))) return null;
 
     try {
       const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-      return Number.isFinite(parsed.exp) && parsed.exp > Math.floor(now() / 1000);
+      if (!Number.isFinite(parsed.exp) || parsed.exp <= Math.floor(now() / 1000)) return null;
+      if (parsed.tid !== normalizedTenantId) return null;
+      return { tenantId: parsed.tid, expiresAt: parsed.exp };
     } catch {
-      return false;
+      return null;
     }
+  }
+
+  function verifySessionToken(token) {
+    return Boolean(readSessionToken(token));
   }
 
   function passwordMatches(candidate) {
     return authRequired && safeEqual(candidate || "", normalizedPassword);
   }
 
-  function requestIsAuthorized(req) {
-    if (!authRequired) return true;
+  function requestAuth(req) {
+    if (!authRequired) return { tenantId: normalizedTenantId, kind: "development" };
 
     const providedServiceToken = req.get("x-service-token") || "";
     if (
@@ -67,18 +81,26 @@ export function createAuth({
       providedServiceToken &&
       safeEqual(providedServiceToken, normalizedServiceToken)
     ) {
-      return true;
+      return { tenantId: normalizedTenantId, kind: "service" };
     }
 
     const authorization = req.get("authorization") || "";
     const match = authorization.match(/^Bearer\s+(.+)$/i);
-    return Boolean(match && verifySessionToken(match[1]));
+    if (!match) return null;
+    const session = readSessionToken(match[1]);
+    return session ? { tenantId: session.tenantId, kind: "session" } : null;
+  }
+
+  function requestIsAuthorized(req) {
+    return Boolean(requestAuth(req));
   }
 
   return {
     authRequired,
     issueSessionToken,
     passwordMatches,
+    readSessionToken,
+    requestAuth,
     requestIsAuthorized,
     verifySessionToken,
   };
