@@ -749,7 +749,20 @@ route("put", "/api/suppliers/:id", async (req, res) => {
       ),
       updated_at = now()
       WHERE tenant_id = $4
-        AND (data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $3::text || '%');
+        AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(data->'ingredients') = 'array' THEN data->'ingredients'
+              ELSE '[]'::jsonb
+            END
+          ) ing
+          WHERE ing->>'supplierId' = $1
+             OR (
+               (ing->>'supplierId') IS NULL
+               AND lower(coalesce(ing->>'supplier', '')) = lower($3::text)
+             )
+        );
     `,
       [supplierId, name, oldName, targetTenantId]
     );
@@ -829,7 +842,17 @@ route("delete", "/api/suppliers/:id", async (req, res) => {
         )
       ),
       updated_at = now()
-      WHERE tenant_id = $2 AND data::text LIKE '%' || $1 || '%';
+      WHERE tenant_id = $2
+        AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(data->'ingredients') = 'array' THEN data->'ingredients'
+              ELSE '[]'::jsonb
+            END
+          ) ing
+          WHERE ing->>'supplierId' = $1
+        );
     `,
       [supplierId, targetTenantId]
     );
@@ -1021,7 +1044,20 @@ route("put", "/api/suppliers/:id/products/:productId/name", async (req, res) => 
       ),
       updated_at = now()
       WHERE tenant_id = $5
-        AND (data::text LIKE '%' || $1 || '%' OR data::text ILIKE '%' || $4::text || '%');
+        AND EXISTS (
+          SELECT 1
+          FROM jsonb_array_elements(
+            CASE
+              WHEN jsonb_typeof(data->'ingredients') = 'array' THEN data->'ingredients'
+              ELSE '[]'::jsonb
+            END
+          ) ing
+          WHERE ing->>'supplierProductId' = $1
+             OR (
+               ing->>'supplierId' = $3::text
+               AND lower(coalesce(ing->>'name', '')) = lower($4::text)
+             )
+        );
     `,
       [productId, name, supplierId, oldName, targetTenantId]
     );
