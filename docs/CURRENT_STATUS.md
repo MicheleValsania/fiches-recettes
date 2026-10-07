@@ -22,7 +22,7 @@ Backend e PostgreSQL: Railway
 - Creazione di una nuova organizzazione isolata al momento dell'iscrizione.
 - Editor delle fiches con ingredienti, procedimento, categorie, conservazione e informazioni HACCP.
 - Libreria delle fiches con ricerca, modifica, duplicazione, eliminazione ed export.
-- Anteprima A4, stampa, export PDF e import/export JSON.
+- Anteprima A4, stampa, export PDF e import/export JSON. Una fiche JSON importata viene creata come nuova copia nel tenant corrente, senza conservare gli ID interni di fornitori e prodotti del tenant di origine.
 - Gestione di fornitori, cataloghi prodotto, codici fornitore, unita di misura e prezzi.
 - Collegamento degli ingredienti ai prodotti fornitore e calcolo del food cost, con indicazione discreta dei costi parziali.
 - Importazione CSV dei listini con aggiornamento non distruttivo.

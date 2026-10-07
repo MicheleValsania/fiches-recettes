@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./App.css";
 import "./print.css";
 
-import type { FicheTechnique } from "./types/fiche";
+import type { FicheTechnique, IngredientLine } from "./types/fiche";
 import FicheForm from "./components/FicheForm";
 import FichePreview from "./components/FichePreview";
 import AuthPortal from "./components/AuthPortal";
@@ -91,6 +91,48 @@ function newFiche(): FicheTechnique {
       templateHint: "",
     },
     notes: "",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function importedFicheAsCopy(value: unknown): FicheTechnique {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Invalid fiche JSON");
+  }
+
+  const imported = value as Partial<FicheTechnique>;
+  if (
+    typeof imported.title !== "string" ||
+    !Array.isArray(imported.ingredients) ||
+    !Array.isArray(imported.steps)
+  ) {
+    throw new Error("Invalid fiche JSON");
+  }
+
+  const ingredients = imported.ingredients.map((ingredient) => {
+    if (
+      !ingredient ||
+      typeof ingredient !== "object" ||
+      typeof ingredient.name !== "string" ||
+      typeof ingredient.qty !== "string"
+    ) {
+      throw new Error("Invalid ingredient JSON");
+    }
+
+    const copy: IngredientLine = { ...ingredient };
+    delete copy.supplierId;
+    delete copy.supplierProductId;
+    return copy;
+  });
+  const fresh = newFiche();
+  const now = new Date().toISOString();
+
+  return {
+    ...fresh,
+    ...imported,
+    id: fresh.id,
+    ingredients,
     createdAt: now,
     updatedAt: now,
   };
@@ -316,13 +358,10 @@ export default function App() {
 
   async function onImportJson(file: File) {
     try {
-      const imported = await readJsonFile<FicheTechnique>(file);
-      const merged: FicheTechnique = {
-        ...newFiche(),
-        ...imported,
-        updatedAt: new Date().toISOString(),
-      };
-      setFiche(merged);
+      const imported = await readJsonFile<unknown>(file);
+      setEditorNavContext(null);
+      setFiche(importedFicheAsCopy(imported));
+      setDbStatus(t(lang, "status.ficheImportedAsCopy"));
     } catch {
       alert(t(lang, "app.invalidJson"));
     }

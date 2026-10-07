@@ -8,6 +8,7 @@ Include una libreria fiches, gestione fornitori con listini prezzi e calcolo cos
 ## Funzionalità 
 - Editor fiche con anteprima A4 pronta per stampa
 - Import/export JSON e export PDF
+- L'import di una singola fiche JSON crea sempre una nuova copia nel tenant corrente: rigenera ID e date e non riutilizza i riferimenti interni ai listini del tenant di origine.
 - Autosalvataggio locale
 - Libreria fiches su DB (con ricerca per titolo)
 - Fornitori e listini prezzi (con ricerca fornitori)
